@@ -27,3 +27,7 @@ La responsabilidad de umbrales e histeresis muscular sale de Control.h. Control.
 ## Extraccion de Inputs.h
 
 La responsabilidad de antirrebote de entradas sale de Control.h. Control.h incluye el modulo para mantener compatibles el sketch y las pruebas existentes. Este paso conserva el punto de entrada anterior y compila para UNO.
+
+## Extraccion de Motion.h
+
+La responsabilidad de rampa simultanea de dedos sale de Control.h. Control.h incluye el modulo para mantener compatibles el sketch y las pruebas existentes. Este paso conserva el punto de entrada anterior y compila para UNO.
