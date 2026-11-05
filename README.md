@@ -2,9 +2,9 @@
 
 Adaptación de `Inmoov_Robot_Hand.ino` de Kuldip.K Gami al proyecto de Fundamentos de Sistemas Embebidos. Los archivos originales `.ino` y `Robotic Hand.txt` contienen el mismo programa. Se retiraron `SoftwareSerial`, los comandos Bluetooth y los movimientos con `delay()`.
 
-La implementación conserva la plataforma y los pines de actuadores del documento del avance del proyecto: Arduino UNO R3, ATmega328P a 16 MHz y cinco servos. El sensor del proyecto ahora es el **AD8232 de UNIT Electronics**, según la descripción de compra proporcionada por el usuario. Se añaden A1 y A2 para detectar pérdida de contacto. Un solo canal de actividad abre/cierra la mano completa; no identifica dedos individuales.
+La implementación conserva la plataforma y los pines de actuadores del proyecto: Arduino UNO R3, ATmega328P a 16 MHz y cinco servos. El sensor del proyecto ahora es el **AD8232 de UNIT Electronics**. Se añaden A1 y A2 para detectar pérdida de contacto. Un solo canal de actividad abre/cierra la mano completa; no identifica dedos individuales.
 
-El documento original es una referencia de diseño: su conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
+La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
 ## Archivos
 
@@ -21,7 +21,7 @@ El documento original es una referencia de diseño: su conexión de alimentació
 
 **El AD8232 es un acondicionador ECG, no un sensor que entregue una envolvente EMG.** El [fabricante Analog Devices](https://www.analog.com/en/products/ad8232.html) explica que su banda y ganancia dependen de componentes externos. No se conoce el esquema ni la banda exacta de esta tarjeta UNIT; no se atribuyen a ella los valores de otros módulos. El control de contracciones con esta tarjeta es **experimental**: el firmware calcula una medida de actividad, pero no distingue actividad muscular voluntaria de ECG o artefactos de movimiento. El software no recupera frecuencias eliminadas por el filtro analógico. Si la calibración no logra separar reposo y contracción de forma repetible, hay que revisar el acondicionamiento físico o usar un módulo EMG apropiado; bajar el umbral sin medir no resuelve esa limitación.
 
-Referencias eléctricas: [ficha AD8232, revisión D](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8232.pdf) y [guía de conexión de SparkFun](https://learn.sparkfun.com/tutorials/ad8232-heart-rate-monitor-hookup-guide/). La ficha del circuito integrado no sustituye el esquema de la tarjeta UNIT. La página de Mercado Libre no pudo abrirse desde esta sesión; se usó la descripción de compra facilitada por el usuario.
+Referencias eléctricas: [ficha AD8232, revisión D](https://www.analog.com/media/en/technical-documentation/data-sheets/ad8232.pdf) y [guía de conexión de SparkFun](https://learn.sparkfun.com/tutorials/ad8232-heart-rate-monitor-hookup-guide/). La ficha del circuito integrado no sustituye el esquema de la tarjeta UNIT.
 
 Alimenta los servos desde una fuente/buck dimensionada para sus corrientes, con GND común; no desde el pin 5V ni el USB del Arduino. La propuesta de LiPo 3S y buck requiere validar corriente, regulación y autonomía en el montaje. Con electrodos en el cuerpo, usa alimentación por batería sin conexiones a la red, o aislamiento apropiado para la interfaz de depuración e instrumentos. La [guía del fabricante MyoWare](https://cdn.sparkfun.com/assets/learn_tutorials/1/9/5/6/MyoWare_v2_QuickStartGuide.pdf) explica esta precaución para sistemas de electrodos conectados a USB.
 
@@ -48,7 +48,7 @@ Alimenta los servos desde una fuente/buck dimensionada para sus corrientes, con 
 | Prueba de muestreo | D2 | Salida opcional; un flanco por conversión ADC |
 | Depuración USB | D0/D1 | UART a 115200 baud; sin módulo Bluetooth |
 
-RGB de cátodo común por defecto, común a GND. Para ánodo común cambia `RGB_COMMON_ANODE` en `Config.h` y conecta el común según el LED. La tabla sustituye los pines de servo D2–D6 del código original: el documento usa D3/D5/D6/D10/D11.
+RGB de cátodo común por defecto, común a GND. Para ánodo común cambia `RGB_COMMON_ANODE` en `Config.h` y conecta el común según el LED. La tabla sustituye los pines de servo D2–D6 del código original: el proyecto usa D3/D5/D6/D10/D11.
 
 La guía genérica de SparkFun conecta LO+/LO− a D10/D11; aquí esos pines ya controlan servos y **se usan A1/A2 para LO+/LO−**. No conectes ambas funciones a los mismos pines.
 
@@ -90,7 +90,7 @@ Indicadores de operación: rojo = manual abierto; amarillo = manual cerrando/cer
 - **Timer1:** reservado a la biblioteca Servo para cinco trenes de pulsos de aproximadamente 50 Hz. Se usa su implementación, sin sobrescribir sus registros.
 - **Timer0:** permanece con la configuración del núcleo Arduino para `millis()`.
 - **Movimiento:** avance simultáneo de 25/1000 del recorrido cada 20 ms, con un primer paso inmediato al aceptar la orden. Recorrido ordenado completo en 780–800 ms nominales, reversible en cualquier punto. El tiempo físico debe medirse.
-- **Interfaz:** lectura cada 5 ms y antirrebote estable de 10 ms. Se ajusta el planteamiento de 10/20 ms del documento porque esa combinación puede superar su límite R9 de 20 ms.
+- **Interfaz:** lectura cada 5 ms y antirrebote estable de 10 ms. Se ajustan los tiempos de 10/20 ms porque esa combinación puede superar el límite R9 de 20 ms.
 - **D2:** conmuta en cada ISR ADC. El periodo entre flancos consecutivos debe ser 1 ms; la onda completa es de **500 Hz**, no 1 kHz. Desactiva con `EMG_SAMPLE_PROBE=0` si usas D2 para otra cosa.
 - **EEPROM:** contador de arranques en bytes 0–7; umbrales con firma AD8232 versión 2 (`0xE702`) y comprobación en bytes 16–23. Se conserva el contador de arranques de la versión anterior, pero se rechazan sus umbrales. El contador cambia una vez por arranque, la calibración solo al completar una nueva medición. Una escritura interrumpida puede invalidar el registro, que se rechaza en el próximo arranque; no es un registro de reinicios tolerante a fallas ni tiene reparto de desgaste.
 
@@ -132,16 +132,20 @@ Se verificaron eliminación DC, simetría frente a semiondas positivas/negativas
 
 Compilación verificada con Arduino AVR 1.8.6 y Servo 1.2.2: 9784 bytes de Flash y 621 bytes de variables globales. Las pruebas C++11 pasaron sin advertencias del código del proyecto.
 
-| Requisito del documento | Preparación en firmware | Verificación pendiente en el montaje |
+| Requisito del proyecto | Preparación en firmware | Verificación pendiente en el montaje |
 | --- | --- | --- |
 | R1: latencia <=50 ms | Sin `delay()`, envolvente de 32 muestras, primer paso inmediato | Con AD8232 hay latencia del filtro analógico y del procesamiento; OUTPUT ya no es una envolvente que se pueda comparar directamente con el umbral. Definir una referencia de inicio de contracción y repetir las mediciones; <=50 ms sigue sin demostrarse |
 | R2: cierre <=1 s | Rampa simultánea nominal de 800 ms | Video de 10 cierres con batería y carga indicadas |
 | R3: 0–150° | Extremos de pulso configurables por dedo | Calibración con goniómetro; no confundir ángulo mecánico con pulso |
-| R4/R5: tensor y autonomía | Sin medición de fuerza, corriente o batería en este circuito | Ensayo de tensor y autonomía según el documento |
+| R4/R5: tensor y autonomía | Sin medición de fuerza, corriente o batería en este circuito | Ensayo de tensor y autonomía según los requisitos del proyecto |
 | R6: detección >=90% | Calibración de envolvente, histéresis, LO+/LO− y eventos con tiempo | Control muscular experimental: 50 contracciones y 5 min de reposo; comprobar que ECG/artefactos no disparen cierres |
 | R7: PWM | Servo/Timer1; extremos iniciales 1–2 ms | Periodo y ancho en los cinco pines bajo carga |
 | R8: ADC 1 kHz | Timer2/ADC con salida de prueba D2 y contador de overruns | Medir intervalos de 1 ms entre flancos con servos activos |
 | R9: interfaz <=20 ms | Muestreo 5 ms, antirrebote 10 ms, LED inmediato | Medir entradas y LED, incluidos rebotes reales |
 | R10: estabilidad | Contador persistente de arranques | Medir buck y comparar contador antes/después de 100 ciclos |
 
-La compilación y las pruebas de lógica no comprueban los criterios eléctricos, mecánicos ni de exactitud EMG. No se cargó el programa en una placa ni se accionaron motores desde esta sesión.
+La compilación y las pruebas de lógica no comprueban los criterios eléctricos, mecánicos ni de exactitud EMG. No se cargó el programa en una placa ni se accionaron motores en las verificaciones de software.
+
+## Modularizacion en curso
+
+El historial de `main` separa cada responsabilidad desde el codigo base. La evolucion de los modulos se documenta en [el registro de pasos](docs/modularizacion-paso-a-paso.md).

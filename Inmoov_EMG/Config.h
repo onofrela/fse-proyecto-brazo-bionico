@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 namespace Config {
-// Asignacion de la tabla de perifericos del Avance 1, pagina 7.
+// Asignacion de pines de los perifericos del proyecto.
 constexpr uint8_t SERVO_PINS[5] = {3, 5, 6, 10, 11};
 constexpr uint8_t BUTTON_PIN = 8;
 constexpr uint8_t MODE_PIN = 9; // GND = manual; abierto = EMG.
