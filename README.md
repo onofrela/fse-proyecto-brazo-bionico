@@ -153,3 +153,7 @@ El historial de `main` separa cada responsabilidad desde el codigo base. La evol
 ### Apoyo: servomotor
 
 [Prueba_Servo_Serial](Prueba_Servo_Serial/README.md): programa independiente para enviar angulos por UART a un servo en D3 y revisar su respuesta.
+
+### Apoyo: ADC y AD8232
+
+[Prueba_AD8232_Serial](Prueba_AD8232_Serial/README.md): programa independiente para observar ADC crudo y LO+/LO- a 115200 baudios, sin filtros ni servos.
