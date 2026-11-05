@@ -23,3 +23,7 @@ La responsabilidad de senal AD8232 y media movil sale de Control.h. Control.h in
 ## Extraccion de Decision.h
 
 La responsabilidad de umbrales e histeresis muscular sale de Control.h. Control.h incluye el modulo para mantener compatibles el sketch y las pruebas existentes. Este paso conserva el punto de entrada anterior y compila para UNO.
+
+## Extraccion de Inputs.h
+
+La responsabilidad de antirrebote de entradas sale de Control.h. Control.h incluye el modulo para mantener compatibles el sketch y las pruebas existentes. Este paso conserva el punto de entrada anterior y compila para UNO.
