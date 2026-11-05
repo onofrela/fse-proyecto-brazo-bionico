@@ -11,3 +11,7 @@ Se incorpora el sketch existente y su guia: UART a 9600, angulos de 0 a 180 y po
 ## Apoyo de ADC
 
 Se incorpora el sketch existente para entender el offset y las lecturas crudas del AD8232, junto con las senales de contacto. Muestreo nominal de 500 Hz, sin EEPROM. Se verifico compilacion UNO.
+
+## Parametros de operacion
+
+Config.h centraliza pines, limites, tiempos, tamano de cola y direcciones EEPROM. Se conservan los pines y el formato de calibracion de la base.
