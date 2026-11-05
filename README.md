@@ -149,3 +149,7 @@ La compilación y las pruebas de lógica no comprueban los criterios eléctricos
 ## Modularizacion en curso
 
 El historial de `main` separa cada responsabilidad desde el codigo base. La evolucion de los modulos se documenta en [el registro de pasos](docs/modularizacion-paso-a-paso.md).
+
+### Apoyo: servomotor
+
+[Prueba_Servo_Serial](Prueba_Servo_Serial/README.md): programa independiente para enviar angulos por UART a un servo en D3 y revisar su respuesta.
