@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "Control.h"
 #include "Outputs.h"
+#include "Diagnostics.h"
 
 #if !defined(__AVR_ATmega328P__) || F_CPU != 16000000UL
 #error "Este firmware requiere ATmega328P a 16 MHz (Arduino UNO R3)."
@@ -50,13 +51,10 @@ bool emgMode = false;
 bool calibrated = false;
 bool calibrationPending = false;
 bool signalFault = false;
-bool plotEnabled = false;
 uint32_t bootCount = 0;
 uint32_t lastSampleMs = 0;
 uint32_t lastSequence = 0;
 uint32_t lastUiMs = 0;
-uint32_t lastPlotMs = 0;
-uint32_t droppedLogs = 0;
 
 // Muestreo por Timer2; Timer1 queda reservado a Servo y Timer0 a millis().
 ISR(TIMER2_COMPA_vect) {
@@ -124,21 +122,7 @@ void startSampling() {
 }
 
 void logEvent(const char *name, uint32_t now, uint32_t value) {
-#if EMG_SERIAL_DEBUG
-  char line[62];
-  const int length = snprintf(line, sizeof(line), "E,%lu,%s,%lu\n",
-                             (unsigned long)now, name, (unsigned long)value);
-  if (length > 0 && length < (int)sizeof(line) &&
-      Serial.availableForWrite() >= length) {
-    Serial.write((const uint8_t *)line, length);
-  } else {
-    ++droppedLogs;
-  }
-#else
-  (void)name;
-  (void)now;
-  (void)value;
-#endif
+  Diagnostics::event(name, now, value);
 }
 
 // EEPROM: contador en 0..7; calibracion AD8232 version 2 en 16..23.
@@ -282,45 +266,31 @@ void updateCalibration(uint32_t now, const Sample &s, bool fresh, bool healthy) 
 }
 
 void updateSerial(uint32_t now, const Sample &s) {
-#if EMG_SERIAL_DEBUG
-  // A lo sumo un byte por vuelta para no monopolizar el super loop.
-  if (Serial.available()) {
-    const char command = Serial.read();
-    if (command == 'c' || command == 'C') requestCalibration(now);
-    if (command == 'p' || command == 'P') plotEnabled = !plotEnabled;
-    if (command == 'x' || command == 'X') {
+  switch (Diagnostics::command()) {
+    case Diagnostics::Command::Calibrate: requestCalibration(now); break;
+    case Diagnostics::Command::TogglePlot: Diagnostics::togglePlot(); break;
+    case Diagnostics::Command::Open:
       calibration.cancel();
       calibrationPending = false;
       muscle.reset();
       requestHand(false, now);
-    }
+      break;
+    case Diagnostics::Command::None: break;
   }
-  if (plotEnabled && uint32_t(now - lastPlotMs) >= 100) {
-    lastPlotMs = now;
-    char line[64];
-    const int length = snprintf(line, sizeof(line), "D,%lu,%u,%u,%u,%u,%u,%u,%u,%lu\n",
-        (unsigned long)now, s.raw, s.baseline, s.envelope,
-        thresholds.open, thresholds.close,
-        unsigned((s.leadsOff ? 1 : 0) | (s.clipped ? 2 : 0) | (!s.ready ? 4 : 0) |
-                 (uint32_t(now - lastSampleMs) > 10 ? 8 : 0)),
-        s.overruns, (unsigned long)droppedLogs);
-    if (length > 0 && length < (int)sizeof(line) &&
-        Serial.availableForWrite() >= length) {
-      Serial.write((const uint8_t *)line, length);
-    } else {
-      ++droppedLogs;
-    }
-  }
-#else
-  (void)now;
-  (void)s;
-#endif
+  Diagnostics::Sample data;
+  data.raw = s.raw;
+  data.baseline = s.baseline;
+  data.envelope = s.envelope;
+  data.overruns = s.overruns;
+  data.faults = (s.leadsOff ? Config::FAULT_LEADS_OFF : 0) |
+                (s.clipped ? Config::FAULT_CLIPPED : 0) |
+                (!s.ready ? Config::FAULT_NOT_READY : 0) |
+                (uint32_t(now - lastSampleMs) > Config::SAMPLE_TIMEOUT_MS ? Config::FAULT_STALE : 0);
+  Diagnostics::plot(now, data, thresholds);
 }
 
 void setup() {
-#if EMG_SERIAL_DEBUG
-  Serial.begin(Config::SERIAL_BAUD);
-#endif
+  Diagnostics::begin();
   outputsReady = Outputs::begin();
   if (!outputsReady) logEvent("SERVO_INIT_FAILED", millis(), 0);
   pinMode(Config::LEADS_OFF_PLUS_PIN, INPUT);
