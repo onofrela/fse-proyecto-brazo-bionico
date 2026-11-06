@@ -43,3 +43,7 @@ Se hacen explicitas las conversiones de las senales sinteticas para compilar tam
 ## Validacion y rearme de senal
 
 Se agrega reset del filtro para recuperarse de huecos de adquisicion, se rechazan umbrales invalidos y valores fuera de rango al calibrar. La adquisicion aun reside en el sketch.
+
+## Driver Outputs conectado
+
+Se extraen GPIO, RGB y cinco canales Servo. El sketch llama al driver y comprueba errores de inicio/escritura. El driver revierte un attach parcial. Se conserva la coordinacion anterior.

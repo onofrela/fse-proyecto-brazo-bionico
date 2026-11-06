@@ -6,18 +6,18 @@
  * Ver README.md antes de alimentar el sensor o conectar los tensores.
  */
 #include <Arduino.h>
-#include <Servo.h>
 #include <EEPROM.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include "Config.h"
 #include "Control.h"
+#include "Outputs.h"
 
 #if !defined(__AVR_ATmega328P__) || F_CPU != 16000000UL
 #error "Este firmware requiere ATmega328P a 16 MHz (Arduino UNO R3)."
 #endif
 
-Servo fingers[5];
+bool outputsReady = false;
 Hand::Ad8232Signal signalProcessor;
 Hand::Motion motion;
 Hand::MuscleSwitch muscle;
@@ -175,13 +175,14 @@ void saveCalibration() {
 }
 
 void writeFingers() {
-  for (uint8_t i = 0; i < 5; ++i) {
-    fingers[i].writeMicroseconds(Hand::pulse(motion.position(),
-                                Config::OPEN_US[i], Config::CLOSED_US[i]));
+  if (!Outputs::setPosition(motion.position())) {
+    outputsReady = false;
+    logEvent("SERVO_WRITE_FAILED", millis(), motion.position());
   }
 }
 
 void requestHand(bool closed, uint32_t now) {
+  if (!outputsReady) return;
   const bool changed = closed != motion.closed();
   if (motion.request(closed, now)) writeFingers();
   if (changed) logEvent(closed ? "CLOSE" : "OPEN", now, motion.position());
@@ -196,9 +197,7 @@ void requestCalibration(uint32_t now) {
 }
 
 void writeLed(bool red, bool green, bool blue) {
-  digitalWrite(Config::LED_RED, red != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_GREEN, green != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_BLUE, blue != Config::RGB_COMMON_ANODE);
+  Outputs::led(red, green, blue);
 }
 
 void updateLed(uint32_t now) {
@@ -223,8 +222,8 @@ void updateLed(uint32_t now) {
 void updateUi(uint32_t now) {
   if (uint32_t(now - lastUiMs) < 5) return;
   lastUiMs = now;
-  const bool modeChanged = selector.update(digitalRead(Config::MODE_PIN) == HIGH, now);
-  const bool buttonChanged = button.update(digitalRead(Config::BUTTON_PIN) == LOW, now);
+  const bool modeChanged = selector.update(Outputs::emgSelected(), now);
+  const bool buttonChanged = button.update(Outputs::buttonPressed(), now);
   if (modeChanged) {
     emgMode = selector.value();
     calibration.cancel();
@@ -320,30 +319,21 @@ void updateSerial(uint32_t now, const Sample &s) {
 
 void setup() {
 #if EMG_SERIAL_DEBUG
-  Serial.begin(115200);
+  Serial.begin(Config::SERIAL_BAUD);
 #endif
-  pinMode(Config::BUTTON_PIN, INPUT_PULLUP);
-  pinMode(Config::MODE_PIN, INPUT_PULLUP);
+  outputsReady = Outputs::begin();
+  if (!outputsReady) logEvent("SERVO_INIT_FAILED", millis(), 0);
   pinMode(Config::LEADS_OFF_PLUS_PIN, INPUT);
   pinMode(Config::LEADS_OFF_MINUS_PIN, INPUT);
-  pinMode(Config::LED_RED, OUTPUT);
-  pinMode(Config::LED_GREEN, OUTPUT);
-  pinMode(Config::LED_BLUE, OUTPUT);
   loadSettings();
-  for (uint8_t i = 0; i < 5; ++i) {
-    fingers[i].writeMicroseconds(Config::OPEN_US[i]);
-    fingers[i].attach(Config::SERVO_PINS[i]);
-    fingers[i].writeMicroseconds(Config::OPEN_US[i]);
-  }
   const uint32_t now = millis();
-  emgMode = digitalRead(Config::MODE_PIN) == HIGH;
+  emgMode = Outputs::emgSelected();
   selector.begin(emgMode, now);
-  button.begin(digitalRead(Config::BUTTON_PIN) == LOW, now);
+  button.begin(Outputs::buttonPressed(), now);
   lastSampleMs = now;
   startSampling();
   logEvent("BOOT", now, bootCount);
   logEvent("MODE", now, emgMode);
-  // Sin USB: mantener D8 pulsado al encender inicia la calibracion.
   if (!calibrated || button.value()) requestCalibration(now);
   updateLed(now);
 }
