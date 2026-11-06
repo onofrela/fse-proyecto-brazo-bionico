@@ -17,6 +17,7 @@ class MuscleSwitch {
  public:
   void reset() { armed_ = false; closed_ = false; }
   bool update(uint16_t value, const Thresholds &t) {
+    if (!t.valid()) { reset(); return false; }
     if (value <= t.open) {
       armed_ = true;
       closed_ = false;

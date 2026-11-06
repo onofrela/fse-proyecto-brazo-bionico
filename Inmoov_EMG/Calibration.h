@@ -26,7 +26,7 @@ class Calibration {
   // Llamar una vez por muestra nueva; no recontar la misma muestra.
   void update(uint32_t now, uint16_t value, bool healthy) {
     if (!running()) return;
-    if (!healthy) { stage_ = FAILED; return; }
+    if (!healthy || value >= Config::ADC_HIGH_CLIP) { stage_ = FAILED; return; }
     const uint32_t elapsed = now - since_;
     if (stage_ == PREPARE_REST || stage_ == PREPARE_ACTIVE) {
       if (elapsed >= Config::CAL_PREPARE_MS) {
