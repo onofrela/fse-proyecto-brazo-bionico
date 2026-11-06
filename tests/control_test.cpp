@@ -153,8 +153,8 @@ void testAd8232Signal() {
   uint16_t activity = 0;
   for (int i = 0; i < 5000; ++i) {
     const int wave = (i / 10) % 2 ? 80 : -80;
-    const uint16_t a = lower.add(200 + wave, false);
-    const uint16_t b = upper.add(450 + wave, false);
+    const uint16_t a = lower.add(uint16_t(200 + wave), false);
+    const uint16_t b = upper.add(uint16_t(450 + wave), false);
     assert(a == b); // Misma actividad aunque cambie el offset DC de la tarjeta.
     activity = a;
   }
@@ -192,7 +192,7 @@ void testAd8232CalibrationAndContactLoss() {
                         c.stage() == Calibration::ACTIVE;
     const int amplitude = active ? 100 : 2;
     const int wave = (now / 10) % 2 ? amplitude : -amplitude;
-    const uint16_t envelope = signal.add(338 + wave, false);
+    const uint16_t envelope = signal.add(uint16_t(338 + wave), false);
     assert(signal.ready());
     c.update(now, envelope, signal.ready());
   }

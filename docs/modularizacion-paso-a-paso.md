@@ -35,3 +35,7 @@ La responsabilidad de rampa simultanea de dedos sale de Control.h. Control.h inc
 ## Extraccion de Calibration.h
 
 La responsabilidad de maquina de estados de calibracion sale de Control.h. Control.h incluye el modulo para mantener compatibles el sketch y las pruebas existentes. Este paso conserva el punto de entrada anterior y compila para UNO.
+
+## Regresion de logica separada
+
+Se hacen explicitas las conversiones de las senales sinteticas para compilar tambien con MSVC y advertencias como errores. Se ejecutan los ocho grupos originales sobre los modulos separados.
