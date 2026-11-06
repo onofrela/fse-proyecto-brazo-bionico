@@ -6,13 +6,13 @@
  * Ver README.md antes de alimentar el sensor o conectar los tensores.
  */
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 #include "Config.h"
 #include "Control.h"
 #include "Outputs.h"
 #include "Diagnostics.h"
+#include "Storage.h"
 
 #if !defined(__AVR_ATmega328P__) || F_CPU != 16000000UL
 #error "Este firmware requiere ATmega328P a 16 MHz (Arduino UNO R3)."
@@ -49,6 +49,7 @@ volatile bool sampleLeadsOff = true;
 
 bool emgMode = false;
 bool calibrated = false;
+bool savingCalibration = false;
 bool calibrationPending = false;
 bool signalFault = false;
 uint32_t bootCount = 0;
@@ -128,34 +129,25 @@ void logEvent(const char *name, uint32_t now, uint32_t value) {
 // EEPROM: contador en 0..7; calibracion AD8232 version 2 en 16..23.
 // La firma se escribe al final para rechazar una recalibracion interrumpida.
 void loadSettings() {
-  uint32_t savedCount, inverse;
-  EEPROM.get(0, savedCount);
-  EEPROM.get(4, inverse);
-  bootCount = ((savedCount ^ inverse) == 0xFFFFFFFFUL &&
-               savedCount != 0xFFFFFFFFUL) ? savedCount + 1 : 1;
-  EEPROM.put(0, bootCount);
-  inverse = ~bootCount;
-  EEPROM.put(4, inverse);
-
-  uint16_t signature, checksum;
-  EEPROM.get(16, signature);
-  EEPROM.get(18, thresholds.open);
-  EEPROM.get(20, thresholds.close);
-  EEPROM.get(22, checksum);
-  calibrated = signature == Config::CALIBRATION_SIGNATURE && thresholds.valid() &&
-               checksum == uint16_t(thresholds.open ^ thresholds.close ^ 0xA57C);
-  if (!calibrated) thresholds = Hand::Thresholds{0, 0};
+  const Storage::Settings settings = Storage::load();
+  bootCount = settings.bootCount;
+  thresholds = settings.thresholds;
+  calibrated = settings.calibrated;
+  if (!settings.bootVerified) logEvent("EEPROM_BOOT_FAILED", millis(), 0);
 }
 
 void saveCalibration() {
-  const uint16_t invalid = 0;
-  const uint16_t signature = Config::CALIBRATION_SIGNATURE;
-  const uint16_t checksum = thresholds.open ^ thresholds.close ^ 0xA57C;
-  EEPROM.put(16, invalid);
-  EEPROM.put(18, thresholds.open);
-  EEPROM.put(20, thresholds.close);
-  EEPROM.put(22, checksum);
-  EEPROM.put(16, signature);
+  savingCalibration = Storage::save(thresholds);
+  if (!savingCalibration) logEvent("EEPROM_SAVE_FAILED", millis(), 0);
+}
+
+void pollStorage(uint32_t now) {
+  if (!savingCalibration) return;
+  const Hand::SaveResult result = Storage::poll();
+  if (result == Hand::SaveResult::Saved || result == Hand::SaveResult::Failed) {
+    savingCalibration = false;
+    logEvent(result == Hand::SaveResult::Saved ? "EEPROM_SAVED" : "EEPROM_SAVE_FAILED", now, 0);
+  }
 }
 
 void writeFingers() {
@@ -336,4 +328,5 @@ void loop() {
   }
   if (motion.update(now)) writeFingers();
   updateLed(now);
+  pollStorage(now);
 }

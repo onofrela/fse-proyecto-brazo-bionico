@@ -55,3 +55,7 @@ Se retira el formato UART del sketch. Diagnostics valida read/write y capacidad 
 ## Transaccion de calibracion
 
 CalibrationStore separa el formato persistente de la EEPROM concreta. La transaccion invalida firma, escribe datos/checksum y confirma firma; cada byte se verifica antes del siguiente.
+
+## Driver Storage conectado
+
+El sketch carga umbrales/contador a traves de Storage. Las escrituras de calibracion se reparten entre vueltas mediante pollStorage y se comprueban sus resultados. Se elimina EEPROM.put masivo durante la operacion.
