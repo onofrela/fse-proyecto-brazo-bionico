@@ -39,3 +39,7 @@ La responsabilidad de maquina de estados de calibracion sale de Control.h. Contr
 ## Regresion de logica separada
 
 Se hacen explicitas las conversiones de las senales sinteticas para compilar tambien con MSVC y advertencias como errores. Se ejecutan los ocho grupos originales sobre los modulos separados.
+
+## Validacion y rearme de senal
+
+Se agrega reset del filtro para recuperarse de huecos de adquisicion, se rechazan umbrales invalidos y valores fuera de rango al calibrar. La adquisicion aun reside en el sketch.
