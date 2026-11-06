@@ -47,3 +47,7 @@ Se agrega reset del filtro para recuperarse de huecos de adquisicion, se rechaza
 ## Driver Outputs conectado
 
 Se extraen GPIO, RGB y cinco canales Servo. El sketch llama al driver y comprueba errores de inicio/escritura. El driver revierte un attach parcial. Se conserva la coordinacion anterior.
+
+## Driver Diagnostics conectado
+
+Se retira el formato UART del sketch. Diagnostics valida read/write y capacidad de salida, limita comandos por vuelta y descarta telemetria antes de bloquear el control.
