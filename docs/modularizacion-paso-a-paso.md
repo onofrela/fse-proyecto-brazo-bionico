@@ -51,3 +51,7 @@ Se extraen GPIO, RGB y cinco canales Servo. El sketch llama al driver y comprueb
 ## Driver Diagnostics conectado
 
 Se retira el formato UART del sketch. Diagnostics valida read/write y capacidad de salida, limita comandos por vuelta y descarta telemetria antes de bloquear el control.
+
+## Transaccion de calibracion
+
+CalibrationStore separa el formato persistente de la EEPROM concreta. La transaccion invalida firma, escribe datos/checksum y confirma firma; cada byte se verifica antes del siguiente.
