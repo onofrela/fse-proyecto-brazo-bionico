@@ -75,3 +75,7 @@ Se trasladan modo, UI, calibracion y movimiento al propietario unico Application
 ## Pruebas de persistencia
 
 Se incorpora soporte de resultados esperado/obtenido y se prueban EEPROM ocupada, transaccion completa, cortes tras los pasos 1..9, checksum corrupto y byte que no se escribe.
+
+## Pruebas de drivers
+
+Los dobles Arduino/Servo permiten comprobar rollback de attach y los cinco pulsos ordenados; UART llena, escritura corta, lectura fallida y recuperacion de salida se prueban sin hardware.
