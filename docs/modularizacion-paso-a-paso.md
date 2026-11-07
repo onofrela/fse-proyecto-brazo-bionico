@@ -79,3 +79,7 @@ Se incorpora soporte de resultados esperado/obtenido y se prueban EEPROM ocupada
 ## Pruebas de drivers
 
 Los dobles Arduino/Servo permiten comprobar rollback de attach y los cinco pulsos ordenados; UART llena, escritura corta, lectura fallida y recuperacion de salida se prueban sin hardware.
+
+## Pruebas de extremo a extremo
+
+Se verifica Application con cola/filtros reales y drivers simulados: arranque, UI, tiempos logicos, contacto, timeout ADC, cola llena, datos antiguos y recuperacion. No son mediciones electricas ni mecanicas.
