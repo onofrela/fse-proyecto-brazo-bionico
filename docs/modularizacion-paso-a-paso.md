@@ -83,3 +83,7 @@ Los dobles Arduino/Servo permiten comprobar rollback de attach y los cinco pulso
 ## Pruebas de extremo a extremo
 
 Se verifica Application con cola/filtros reales y drivers simulados: arranque, UI, tiempos logicos, contacto, timeout ADC, cola llena, datos antiguos y recuperacion. No son mediciones electricas ni mecanicas.
+
+## Tabla reproducible de pruebas
+
+scripts/test.py compila y ejecuta los cuatro grupos con aserciones activas y advertencias como errores. Genera la tabla de 27 casos con esperado y obtenido. Los archivos build y caches de Python no se versionan.
