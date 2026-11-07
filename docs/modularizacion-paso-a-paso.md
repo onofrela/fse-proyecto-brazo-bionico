@@ -63,3 +63,7 @@ El sketch carga umbrales/contador a traves de Storage. Las escrituras de calibra
 ## Cola de comunicacion
 
 SampleQueue incorpora muestras con tiempo, valor ADC y contacto en memoria estatica. Productor y consumidor tienen indices separados y la cola llena no sobrescribe pendientes. La conexion con ISR se realiza en el siguiente paso.
+
+## Driver Acquisition conectado
+
+Timer2 y ADC salen del sketch. La ISR publica en la cola y Acquisition protege copias/contadores con ATOMIC_RESTORESTATE. El puente readSample consume y filtra en el bucle; se comprueban timeout, antiguedad y perdida. La coordinacion por muestra se completa con Application.
