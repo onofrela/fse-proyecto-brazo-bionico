@@ -71,3 +71,7 @@ Timer2 y ADC salen del sketch. La ISR publica en la cola y Acquisition protege c
 ## Coordinador Application conectado
 
 Se trasladan modo, UI, calibracion y movimiento al propietario unico Application. Se elimina el puente temporal y se procesa cada muestra una vez con su hora de captura. El .ino queda reducido a setup/loop; seguridad, UI, rampa, EEPROM y UART tienen orden cooperativo explicito.
+
+## Pruebas de persistencia
+
+Se incorpora soporte de resultados esperado/obtenido y se prueban EEPROM ocupada, transaccion completa, cortes tras los pasos 1..9, checksum corrupto y byte que no se escribe.
