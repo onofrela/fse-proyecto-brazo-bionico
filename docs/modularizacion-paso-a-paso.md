@@ -67,3 +67,7 @@ SampleQueue incorpora muestras con tiempo, valor ADC y contacto en memoria estat
 ## Driver Acquisition conectado
 
 Timer2 y ADC salen del sketch. La ISR publica en la cola y Acquisition protege copias/contadores con ATOMIC_RESTORESTATE. El puente readSample consume y filtra en el bucle; se comprueban timeout, antiguedad y perdida. La coordinacion por muestra se completa con Application.
+
+## Coordinador Application conectado
+
+Se trasladan modo, UI, calibracion y movimiento al propietario unico Application. Se elimina el puente temporal y se procesa cada muestra una vez con su hora de captura. El .ino queda reducido a setup/loop; seguridad, UI, rampa, EEPROM y UART tienen orden cooperativo explicito.
