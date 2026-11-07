@@ -87,3 +87,7 @@ Se verifica Application con cola/filtros reales y drivers simulados: arranque, U
 ## Tabla reproducible de pruebas
 
 scripts/test.py compila y ejecuta los cuatro grupos con aserciones activas y advertencias como errores. Genera la tabla de 27 casos con esperado y obtenido. Los archivos build y caches de Python no se versionan.
+
+## Configuracion de herramientas
+
+bootstrap fija AVR 1.8.6 y Servo 1.2.2; build.py comprueba las versiones y compila sin subir firmware. Se conservan opciones para UART y sonda D2.
