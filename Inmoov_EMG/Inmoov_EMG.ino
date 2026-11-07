@@ -6,13 +6,12 @@
  * Ver README.md antes de alimentar el sensor o conectar los tensores.
  */
 #include <Arduino.h>
-#include <avr/interrupt.h>
-#include <util/atomic.h>
 #include "Config.h"
 #include "Control.h"
 #include "Outputs.h"
 #include "Diagnostics.h"
 #include "Storage.h"
+#include "Acquisition.h"
 
 #if !defined(__AVR_ATmega328P__) || F_CPU != 16000000UL
 #error "Este firmware requiere ATmega328P a 16 MHz (Arduino UNO R3)."
@@ -38,14 +37,9 @@ struct Sample {
   bool leadsOff;
 };
 
-volatile uint32_t sampleSequence = 0;
-volatile uint16_t sampleRaw = 0;
-volatile uint16_t sampleEnvelope = 0;
-volatile uint16_t sampleBaseline = 0;
-volatile uint16_t sampleOverruns = 0;
-volatile bool sampleReady = false;
-volatile bool sampleClipped = false;
-volatile bool sampleLeadsOff = true;
+Sample latestSample = {};
+uint32_t lastCapturedMs = 0;
+bool haveCapturedSample = false;
 
 bool emgMode = false;
 bool calibrated = false;
@@ -57,69 +51,40 @@ uint32_t lastSampleMs = 0;
 uint32_t lastSequence = 0;
 uint32_t lastUiMs = 0;
 
-// Muestreo por Timer2; Timer1 queda reservado a Servo y Timer0 a millis().
-ISR(TIMER2_COMPA_vect) {
-  if (ADCSRA & _BV(ADSC)) {
-    ++sampleOverruns;
-  } else {
-    ADCSRA |= _BV(ADSC);
-  }
-}
-
-ISR(ADC_vect) {
-  const uint16_t raw = ADC;
-#if EMG_SAMPLE_PROBE
-  PIND = _BV(PD2); // Conmuta D2 sin digitalWrite dentro de la ISR.
-#endif
-  // Son entradas de 3.3 V: nunca activar INPUT_PULLUP del UNO (5 V).
-  const bool leadsOff = digitalRead(Config::LEADS_OFF_PLUS_PIN) == HIGH ||
-                        digitalRead(Config::LEADS_OFF_MINUS_PIN) == HIGH;
-  sampleRaw = raw;
-  sampleEnvelope = signalProcessor.add(raw, leadsOff);
-  sampleBaseline = signalProcessor.baseline();
-  sampleReady = signalProcessor.ready();
-  sampleClipped = signalProcessor.clipped();
-  sampleLeadsOff = leadsOff;
-  ++sampleSequence;
-}
-
+// Puente temporal hacia el coordinador existente: la ISR ya solo captura.
 Sample readSample() {
-  Sample s;
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    s.sequence = sampleSequence;
-    s.raw = sampleRaw;
-    s.envelope = sampleEnvelope;
-    s.baseline = sampleBaseline;
-    s.overruns = sampleOverruns;
-    s.ready = sampleReady;
-    s.clipped = sampleClipped;
-    s.leadsOff = sampleLeadsOff;
+  const uint32_t now = millis();
+  if (Acquisition::takeDataLoss()) {
+    Acquisition::discardPending();
+    signalProcessor.reset();
+    latestSample.ready = false;
   }
-  return s;
+  Hand::RawSample raw;
+  for (uint8_t count = 0; count < Config::SAMPLE_QUEUE_CAPACITY - 1; ++count) {
+    if (!Acquisition::take(raw)) break;
+    if (uint32_t(now - raw.capturedMs) > Config::SAMPLE_TIMEOUT_MS) {
+      signalProcessor.reset();
+      latestSample.ready = false;
+      continue;
+    }
+    if (haveCapturedSample && uint32_t(raw.capturedMs - lastCapturedMs) > Config::SAMPLE_TIMEOUT_MS)
+      signalProcessor.reset();
+    lastCapturedMs = raw.capturedMs;
+    haveCapturedSample = true;
+    latestSample.raw = raw.raw;
+    latestSample.leadsOff = raw.leadsOff;
+    latestSample.envelope = signalProcessor.add(raw.raw, raw.leadsOff);
+    latestSample.baseline = signalProcessor.baseline();
+    latestSample.ready = signalProcessor.ready();
+    latestSample.clipped = signalProcessor.clipped();
+    ++latestSample.sequence;
+  }
+  latestSample.overruns = Acquisition::overruns();
+  return latestSample;
 }
 
 void startSampling() {
-#if EMG_SAMPLE_PROBE
-  pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
-#endif
-  ADMUX = _BV(REFS0); // AVcc, canal ADC0 (A0), resultado alineado a la derecha.
-  ADCSRB = 0;
-  DIDR0 |= _BV(ADC0D);
-  ADCSRA = _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1) | _BV(ADPS0);
-  ADCSRA |= _BV(ADSC);
-  while (ADCSRA & _BV(ADSC)) {} // Solo arranque: primera conversion (~200 us).
-  (void)ADC;
-  ADCSRA |= _BV(ADIF) | _BV(ADIE);
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-    TCCR2A = _BV(WGM21);
-    TCCR2B = 0;
-    TCNT2 = 0;
-    OCR2A = 249; // 16 MHz / 64 / (249 + 1) = 1000 Hz.
-    TIFR2 = _BV(OCF2A);
-    TIMSK2 = _BV(OCIE2A);
-    TCCR2B = _BV(CS22);
-  }
+  if (!Acquisition::begin()) logEvent("ADC_INIT_FAILED", millis(), 0);
 }
 
 void logEvent(const char *name, uint32_t now, uint32_t value) {
