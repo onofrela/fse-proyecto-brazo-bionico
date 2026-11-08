@@ -103,3 +103,7 @@ Se publica el flujo conectado entre sensor, adquisicion, cola, filtro, coordinac
 ## Decisiones tecnicas
 
 Se relacionan D01..D06 con archivos y cifras; se distingue el orden cooperativo de las prioridades fijas AVR y se registran las desviaciones frente al diseño.
+
+## Matriz de cumplimiento
+
+Se organiza la evidencia de los requisitos R1..R10, separando codigo implementado, simulacion y ensayos fisicos pendientes. Se registran Flash/SRAM de las dos variantes.
