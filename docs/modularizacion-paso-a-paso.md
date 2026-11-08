@@ -107,3 +107,7 @@ Se relacionan D01..D06 con archivos y cifras; se distingue el orden cooperativo 
 ## Matriz de cumplimiento
 
 Se organiza la evidencia de los requisitos R1..R10, separando codigo implementado, simulacion y ensayos fisicos pendientes. Se registran Flash/SRAM de las dos variantes.
+
+## Procedimiento de laboratorio
+
+Se detalla como medir lo que sigue pendiente y como usar los dos sketches de apoyo por separado, sin confundir orden de servo ni lecturas crudas con resultados del sistema integrado.
