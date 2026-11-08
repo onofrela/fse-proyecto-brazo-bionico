@@ -91,3 +91,7 @@ scripts/test.py compila y ejecuta los cuatro grupos con aserciones activas y adv
 ## Configuracion de herramientas
 
 bootstrap fija AVR 1.8.6 y Servo 1.2.2; build.py comprueba las versiones y compila sin subir firmware. Se conservan opciones para UART y sonda D2.
+
+## Verificacion conjunta
+
+verify.sh enlaza pruebas y compilacion normal/sin UART ni sonda; .gitattributes conserva LF en Bash incluso al clonar desde Windows.
