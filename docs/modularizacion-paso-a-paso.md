@@ -95,3 +95,7 @@ bootstrap fija AVR 1.8.6 y Servo 1.2.2; build.py comprueba las versiones y compi
 ## Verificacion conjunta
 
 verify.sh enlaza pruebas y compilacion normal/sin UART ni sonda; .gitattributes conserva LF en Bash incluso al clonar desde Windows.
+
+## Diagrama de integracion
+
+Se publica el flujo conectado entre sensor, adquisicion, cola, filtro, coordinacion, actuadores, indicadores y persistencia; se explican propiedad de datos y arranque.
