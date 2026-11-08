@@ -1,0 +1,3 @@
+# Los scripts Bash necesitan LF incluso al clonar con core.autocrlf en Windows.
+*.sh text eol=lf
+*.py text eol=lf
