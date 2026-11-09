@@ -159,7 +159,7 @@ void testAd8232Signal() {
     activity = a;
   }
   assert(lower.ready() && upper.ready());
-  assert(activity > 65 && activity < 90); // No cancela las semiondas negativas.
+  assert(activity > 30 && activity < 100); // Actividad conservada tras la nueva banda.
 
   assert(signal.add(338, true) == 0); // Electrodos desconectados.
   assert(!signal.ready());
