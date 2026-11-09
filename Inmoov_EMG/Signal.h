@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "Config.h"
+#include "SignalFilter.h"
 
 namespace Hand {
 
@@ -21,25 +22,25 @@ class MovingAverage {
     sum_ += value;
     index_ = (index_ + 1) % Config::FILTER_WINDOW_SAMPLES;
     if (count_ < Config::FILTER_WINDOW_SAMPLES) ++count_;
-    return sum_ / Config::FILTER_WINDOW_SAMPLES;
+    return uint16_t(sum_ / Config::FILTER_WINDOW_SAMPLES);
   }
   bool ready() const { return count_ == Config::FILTER_WINDOW_SAMPLES; }
 
  private:
   uint16_t samples_[Config::FILTER_WINDOW_SAMPLES] = {};
-  uint16_t sum_ = 0;
+  uint32_t sum_ = 0; // La ventana conserva magnitudes Q6 antes de redondear.
   uint8_t index_ = 0;
   uint8_t count_ = 0;
 };
 
-// OUTPUT del AD8232 NO es una envolvente EMG. Remueve el nivel de reposo
-// con un IIR (tau ~256 ms), rectifica y promedia magnitud en 32 muestras.
-// Es una medida experimental de actividad, no un clasificador muscular/ECG.
+// Consumidor a 1 kHz: DC -> SignalFilter -> rectificacion -> media 32 ms.
+// Adquisicion/ISR permanecen separadas. No clasifica dedos ni garantiza quitar ECG.
 class Ad8232Signal {
  public:
   // Un hueco de adquisicion invalida tanto la ventana como el tiempo estable.
   void reset() {
     window_.clear();
+    filter_.clear();
     baselineQ8_ = 0;
     stableSamples_ = 0;
     envelope_ = 0;
@@ -51,6 +52,7 @@ class Ad8232Signal {
     if (leadsOff || clip) {
       if (initialized_) {
         window_.clear();
+        filter_.clear();
         initialized_ = false;
       }
       stableSamples_ = 0;
@@ -65,8 +67,9 @@ class Ad8232Signal {
     }
     baselineQ8_ += (int32_t(raw) * Config::BASELINE_Q_SCALE - baselineQ8_) / Config::BASELINE_TIME_SAMPLES;
     const int32_t deviation = int32_t(raw) * Config::BASELINE_Q_SCALE - baselineQ8_;
-    const uint16_t magnitude = uint16_t((deviation < 0 ? -deviation : deviation) / Config::BASELINE_Q_SCALE);
-    envelope_ = window_.add(magnitude);
+    const int32_t filtered = filter_.addQ6(deviation / (Config::BASELINE_Q_SCALE / 64));
+    const uint16_t magnitude = uint16_t(filtered < 0 ? -filtered : filtered);
+    envelope_ = window_.add(magnitude) / 64;
     if (stableSamples_ < Config::SIGNAL_SETTLE_SAMPLES) ++stableSamples_;
     return envelope_;
   }
@@ -79,6 +82,7 @@ class Ad8232Signal {
 
  private:
   MovingAverage window_;
+  ActivityFilter filter_;
   int32_t baselineQ8_ = 0;
   uint16_t stableSamples_ = 0;
   uint16_t envelope_ = 0;

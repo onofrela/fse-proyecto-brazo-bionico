@@ -24,6 +24,10 @@ constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint16_t SAMPLE_HZ = 1000;
+constexpr uint8_t FIRMWARE_VERSION = 6;
+constexpr uint16_t FILTER_HIGH_PASS_HZ = 30;
+constexpr uint16_t FILTER_NOTCH_HZ = 60;
+constexpr uint16_t FILTER_LOW_PASS_HZ = 200;
 constexpr uint16_t TIMER2_PRESCALER = 64;
 constexpr uint8_t TIMER2_COMPARE = 249;
 constexpr uint16_t ADC_START_TIMEOUT_US = 1000;
@@ -73,7 +77,7 @@ constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
 constexpr uint16_t MIN_CALIBRATION_RANGE = 12; // Envolvente, cuentas ADC.
 constexpr uint16_t REST_NOISE_MARGIN = 2;
-constexpr uint16_t CALIBRATION_SIGNATURE = 0xE702; // Invalida formato anterior.
+constexpr uint16_t CALIBRATION_SIGNATURE = 0xE706; // Cadena filtrada modular: recalibrar.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");
 static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&
@@ -84,7 +88,7 @@ static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&
 constexpr uint16_t OPEN_US[SERVO_COUNT] = {1000, 1000, 1000, 1000, 1000};
 constexpr uint16_t CLOSED_US[SERVO_COUNT] = {2000, 2000, 2000, 2000, 2000};
 static_assert(FILTER_WINDOW_SAMPLES > 0 && FILTER_WINDOW_SAMPLES <= 64,
-              "La suma de la ventana debe caber en 16 bits");
+              "Ventana estatica fuera del presupuesto previsto");
 static_assert(MOTION_STEP > 0 && MOTION_STEP <= POSITION_FULL_SCALE, "Paso invalido");
 static_assert(SAMPLE_QUEUE_CAPACITY > 1, "Cola insuficiente");
 }
