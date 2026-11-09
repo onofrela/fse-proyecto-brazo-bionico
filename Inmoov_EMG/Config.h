@@ -68,14 +68,16 @@ constexpr uint16_t SENSOR_SUPPLY_MV = 3300;
 constexpr uint16_t SENSOR_MAX_ADC =
     (uint32_t(SENSOR_SUPPLY_MV) * ADC_FULL_SCALE + ADC_REFERENCE_MV / 2) / ADC_REFERENCE_MV;
 constexpr uint16_t ADC_LOW_CLIP = 5;
-constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - 6; // 669 con AVcc=5 V.
+constexpr uint16_t ADC_HIGH_CLIP_MARGIN = 6;
+constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669 con AVcc=5 V.
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
 constexpr uint16_t MIN_CALIBRATION_RANGE = 12; // Envolvente, cuentas ADC.
 constexpr uint16_t REST_NOISE_MARGIN = 2;
 constexpr uint16_t CALIBRATION_SIGNATURE = 0xE702; // Invalida formato anterior.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");
-static_assert(SENSOR_MAX_ADC > 12 && SENSOR_MAX_ADC <= 1023, "Rango ADC invalido");
+static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&
+              SENSOR_MAX_ADC <= ADC_FULL_SCALE, "Rango ADC invalido");
 
 // Calibrar con los tensores sueltos. 1000/2000 us son pulsos, NO grados.
 // Se permite invertir individualmente open/closed si un servo gira al reves.

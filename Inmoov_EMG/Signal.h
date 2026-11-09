@@ -37,6 +37,15 @@ class MovingAverage {
 // Es una medida experimental de actividad, no un clasificador muscular/ECG.
 class Ad8232Signal {
  public:
+  // Un hueco de adquisicion invalida tanto la ventana como el tiempo estable.
+  void reset() {
+    window_.clear();
+    baselineQ8_ = 0;
+    stableSamples_ = 0;
+    envelope_ = 0;
+    initialized_ = false;
+    clipped_ = false;
+  }
   uint16_t add(uint16_t raw, bool leadsOff) {
     const bool clip = raw <= Config::ADC_LOW_CLIP || raw >= Config::ADC_HIGH_CLIP;
     if (leadsOff || clip) {
