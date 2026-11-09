@@ -115,3 +115,7 @@ Se detalla como medir lo que sigue pendiente y como usar los dos sketches de apo
 ## README consolidado
 
 Se actualiza el mapa de modulos y se unen instalacion, pruebas, herramientas de apoyo y limites de validacion. El README fue cambiando desde el plan inicial y las guias de cada apoyo.
+
+## Cierre del historial detallado
+
+Se relacionan las etapas de modularizacion y sus etiquetas. El firmware, las pruebas y los scripts conservan su funcionamiento, junto con los apoyos de hardware y su documentacion.
