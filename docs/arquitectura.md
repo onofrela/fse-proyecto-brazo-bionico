@@ -13,15 +13,17 @@ flowchart TD
     ELECT[Electrodos RA / LA / RL] --> SENSOR
     SENSOR -->|OUTPUT A0 y LO+/LO- A1/A2| ADC[Acquisition: Timer2 + ADC ISR]
     ADC -->|muestra cruda + contacto + tiempo| QUEUE[SampleQueue: 32 posiciones, 31 útiles]
-    QUEUE -->|copia atómica| FILTER[Signal: DC + rectificación + ventana 32]
-    FILTER -->|envolvente y salud| APP[Application: coordinación y seguridad]
+    QUEUE -->|copia atómica| DC[Signal: centrado DC y salud]
+    DC --> FILTER[SignalFilter: HP30 + notch60 + LP200]
+    FILTER --> ENV[Signal: rectificación + media de 32 muestras]
+    ENV -->|envolvente y salud| APP[Application: coordinación y seguridad]
     BUTTON[Botón D8 / selector D9] --> INPUT[Outputs: GPIO + Inputs: antirrebote]
     INPUT --> APP
-    APP --> CAL[Calibration: reposo y contracción]
+    APP --> CAL[Calibration: P95 de reposo y P70 de actividad]
     CAL -->|umbrales| APP
     APP -->|guardar| STORE[Storage: EEPROM verificada]
     STORE -->|recuperar al encender| APP
-    APP --> DEC[Decision: histéresis y rearme]
+    APP --> DEC[Decision: ponderación y retención de cierre]
     DEC --> MOTION[Motion: rampa de cinco dedos]
     MOTION --> OUT[Outputs: Servo / Timer1]
     OUT -->|D3 D5 D6 D10 D11| SERVOS[Cinco servomotores]
@@ -30,8 +32,8 @@ flowchart TD
     TENDON --> HAND[Dedos InMoov]
     APP --> RGB[Outputs: RGB D7 D12 D13]
     APP --> DIAG[Diagnostics: UART 115200]
-    DIAG -->|registro opcional| PC[Monitor serie de pruebas]
-    PC -->|c / p / x| DIAG
+    DIAG -->|registro opcional| PC[Analizador: CSV y gráficas]
+    PC -->|c / p / x / consulta| DIAG
     DIAG -->|comando por vuelta| APP
     ADC --> PROBE[D2: un flanco por conversión]
 ```
@@ -52,6 +54,12 @@ La cola llena rechaza la muestra nueva y registra una alarma. Al recibirla, `App
 2. Se configuran GPIO y servos abiertos; se valida `attach` y se deshace un arranque parcial si falla.
 3. Se recuperan umbrales y se escribe/verifica el contador de arranque antes de habilitar ADC.
 4. Se configura ADC con espera acotada y Timer2 con comprobación de registros.
-5. Se entra al bucle sin esperar USB. Sin calibración válida se solicita automáticamente; D8 permite solicitarla incluso con UART deshabilitada.
+5. Se entra al bucle sin esperar USB. Con calibración válida opera tras estabilización y reposo. Sin ella permanece abierto hasta una solicitud explícita; D8 permite calibrar incluso con UART deshabilitada.
 
 Un fallo al iniciar ADC mantiene EMG inhibido hasta reiniciar; manual sigue disponible si los servos iniciaron. Un fallo de servos inhibe sus órdenes y se señala en RGB/UART. Una falla persistente de hardware no puede repararse por software.
+
+## Contrato del filtro y de los dos relojes
+
+SignalFilter tiene estado propio y operaciones `addQ6`/`clear`; no conoce GPIO, servos, EEPROM ni UART. Signal lo reinicia tras pérdida de salud. Sus coeficientes están diseñados para 1000 Hz; la compilación impide cambiar esa frecuencia sin revisar el filtro. El consumidor procesa todas las muestras aceptadas, manteniendo la ISR breve.
+
+Calibration y Decision avanzan con el tiempo de adquisición. Motion avanza con el reloj del bucle y nunca recupera pasos en ráfaga. IPC-TIME verifica ponderación idéntica con una muestra o lotes de cinco. La retención normal no bloquea la vía de falla que solicita apertura. No se añadieron estados por dedo ni se modificó la persistencia incremental.

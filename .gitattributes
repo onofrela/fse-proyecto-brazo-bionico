@@ -2,5 +2,5 @@
 *.sh text eol=lf
 *.py text eol=lf
 # La evidencia conserva sus bytes originales, incluidos BOM y finales de linea.
-docs/mediciones/**/*.csv -text
-docs/mediciones/**/*.json -text
+docs/mediciones/**/*.csv -text whitespace=cr-at-eol
+docs/mediciones/**/*.json -text whitespace=cr-at-eol

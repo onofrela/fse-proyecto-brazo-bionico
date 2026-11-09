@@ -28,3 +28,7 @@ Las capturas adicionales muestran envolventes de una cifra durante algunos inter
 ## Límites y validación pendiente
 
 El CSV contiene instantáneas a 10 Hz de una adquisición interna a 1 kHz. No permite aplicar ni validar retrospectivamente filtros de 30, 60 o 200 Hz. Los filtros nuevos deben actuar sobre muestras internas y verificarse después en el montaje. No se afirma eliminación completa de ECG, reconocimiento de dedos ni fuerza/posición física medida. La validación posterior debe separar pruebas sintéticas y mediciones reales, repetir reposo/contracción y comprobar tiempos, colas, servos y alimentación.
+
+## Estado del módulo durante la investigación
+
+El operador reporta señal muy variable y se busca su causa. Las variaciones de estos ensayos incluyen movimientos voluntarios; no prueban por sí solas una soldadura deficiente, un jumper averiado ni un módulo deteriorado. Esas posibilidades y las demás condiciones del montaje se investigan en [el diagnóstico pendiente](../../diagnostico-sensor.md). Los CSV y capturas originales se mantienen sin modificar.

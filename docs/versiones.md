@@ -1,51 +1,20 @@
 # Historial de versiones
 
-La rama principal es `main`. Parte del codigo base y distribuye por responsabilidad la extraccion, integracion, pruebas y documentacion. Las etiquetas permiten comparar las etapas y consultar las versiones preliminares.
+La base modular recibida mediante pull es a37d208, conservada sin reescribir. La serie siguiente permanece en main y añade evidencia, filtrado, calibración, decisión y telemetría. No se crearon ramas adicionales.
 
-| Etiqueta | Alcance |
-| --- | --- |
-| v0.1.0 | Codigo base del proyecto |
-| v0.5.0-modulos | Apoyos de servo/ADC, configuracion y extraccion individual de los cinco modulos de logica |
-| v0.5.0-integracion | Correcciones, drivers conectados uno a uno, cola ADC y coordinador Application |
-| v0.5.0-pruebas | Pruebas separadas de persistencia, drivers e integracion; tabla de 27 casos y scripts reproducibles |
-| v0.5.0 | Documentacion consolidada, diagrama, decisiones, requisitos, protocolo y registro detallado |
+| Etiqueta | Commit | Fecha | Alcance |
+| --- | --- | --- | --- |
+| v0.5.1-mediciones | 62e46f3 | 2026-11-08T23:21:43-06:00 | test(sensor): conservar mediciones reales y capturas de actividad |
+| v0.6.0-filtro | e43b9c8 | 2026-11-09T00:35:59-06:00 | feat(filtro): incorporar modulo digital verificable a 1 kHz |
+| v0.6.0-senal | 588bb7c | 2026-11-09T02:12:31-06:00 | feat(senal): integrar filtrado sin ampliar las interrupciones ADC |
+| v0.6.0-calibracion | f903cf3 | 2026-11-09T03:34:05-06:00 | fix(calibracion): guiar reposo y contracciones con percentiles robustos |
+| v0.6.0-control | f84ece1 | 2026-11-09T05:03:34-06:00 | feat(decision): ponderar actividad y completar el cierre de la mano |
+| v0.6.0-telemetria | 0906c9b | 2026-11-09T06:51:34-06:00 | feat(diagnostico): conectar telemetria modular y analizador de senal |
+| v0.6.0-evidencia | 349d613 | 2026-11-09T07:49:31-06:00 | fix(evidencia): conservar bytes originales y verificar archivos por SHA256 |
+| v0.6.0 | Este commit | 2026-11-09T08:56:13-06:00 | docs(sensor): documentar inestabilidad y diagnostico pendiente |
 
-Los sketches de apoyo se incorporan como herramientas independientes para verificar servo y ADC. Los resultados fisicos se registran durante los ensayos del montaje.
+Para recorrer la serie: `git log --reverse --oneline a37d208..main`. Para comparar la base modular y la revisión final: `git diff a37d208..v0.6.0`. Las etiquetas son anotadas y permanecen locales hasta un push explícito.
 
-## Commits por paso
+La normalización de texto de Git se desactiva para los CSV y JSON de evidencia, preservando BOM y finales de línea. Comprueba los blobs de la revisión final con `python scripts/verificar_mediciones.py --git-ref HEAD`.
 
-| Paso | Cambio |
-| --- | --- |
-| 01 | docs: registrar el plan de extraccion desde el codigo base |
-| 02 | test(hardware): incorporar prueba serial independiente de un servo |
-| 03 | docs(servo): explicar conexion y uso del apoyo de actuadores |
-| 04 | test(hardware): incorporar lectura cruda del ADC y contacto AD8232 |
-| 05 | docs(adc): explicar lecturas crudas, escala y contactos del sensor |
-| 06 | refactor(config): nombrar parametros de temporizacion y perifericos |
-| 07 | refactor(signal): extraer senal AD8232 y media movil |
-| 08 | refactor(decision): extraer umbrales e histeresis muscular |
-| 09 | refactor(inputs): extraer antirrebote de entradas |
-| 10 | refactor(motion): extraer rampa simultanea de dedos |
-| 11 | refactor(calibration): extraer maquina de estados de calibracion |
-| 12 | test(control): verificar regresion tras extraer los cinco modulos |
-| 13 | fix(control): invalidar datos inseguros y permitir reiniciar el filtro |
-| 14 | refactor(outputs): aislar GPIO y servos y conectar el driver al sketch |
-| 15 | refactor(diagnostics): extraer comandos y telemetria UART del sketch |
-| 16 | feat(storage): separar la transaccion incremental de calibracion |
-| 17 | refactor(storage): integrar EEPROM verificada y guardado por pasos |
-| 18 | feat(ipc): incorporar cola circular SPSC de muestras completas |
-| 19 | refactor(acquisition): mover ISR y conectar la cola al procesamiento |
-| 20 | refactor(application): integrar modulos y reducir el sketch a setup y loop |
-| 21 | test(storage): cubrir guardado incremental y fallas de EEPROM |
-| 22 | test(drivers): comprobar servos y UART con dobles de hardware |
-| 23 | test(integration): cubrir flujo completo y recuperacion de adquisicion |
-| 24 | test: automatizar ejecucion y publicar resultados esperados y obtenidos |
-| 25 | build: fijar dependencias Arduino y separar la compilacion reproducible |
-| 26 | build: integrar verificacion Bash y preservar finales LF |
-| 27 | docs(arquitectura): conectar bloques y explicar el arranque autonomo |
-| 28 | docs(bitacora): relacionar decisiones, prioridades y desviaciones |
-| 29 | docs(requisitos): contrastar la implementacion con requisitos y limites |
-| 30 | docs(pruebas): describir mediciones fisicas y el uso de los apoyos |
-| 31 | docs(readme): consolidar modulos, apoyos y verificacion del proyecto |
-
-El ultimo commit de documentacion se identifica con `v0.5.0`. Para recorrer la evolucion: `git log --reverse --oneline v0.1.0..v0.5.0`. Comparar etapas: `git diff v0.5.0-modulos..v0.5.0-integracion`.
+El estado del módulo del sensor y las hipótesis por comprobar se describen en [diagnóstico del sensor](diagnostico-sensor.md). La revisión no se considera validada físicamente mientras persista la inestabilidad.
