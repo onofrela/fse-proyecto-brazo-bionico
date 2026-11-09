@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build" / "native"
 SUITES = {
     "control": ["tests/control_test.cpp"],
+    "filter": ["tests/filter_test.cpp"],
     "integration": ["tests/integration_test.cpp", "Inmoov_EMG/Application.cpp"],
     "storage": ["tests/storage_test.cpp"],
     "drivers": ["tests/drivers_test.cpp", "Inmoov_EMG/Outputs.cpp", "Inmoov_EMG/Diagnostics.cpp"],
