@@ -136,15 +136,23 @@ void testEndToEndAndRecovery() {
 }
 void testCalibration(bool saveFailure) {
   Fake::reset(); Fake::selected = true; Fake::preCalibrated = false; Fake::saveOk = !saveFailure;
-  Hand::Application app; app.begin(0);
-  for (uint32_t now = 1; now <= 12100; ++now) {
+  Fake::pressed = true; Hand::Application app; app.begin(0);
+  for (uint32_t now = 1; now <= 24100; ++now) {
     const auto stage = app.status().calibration;
     const int amplitude = stage == Hand::Calibration::ACTIVE || stage == Hand::Calibration::PREPARE_ACTIVE ? 100 : 2;
     Fake::feed(app, now, 1, amplitude);
   }
   assert(app.status().calibrated && Fake::saved.valid());
   if (saveFailure) result("F5-SW", "error de persistencia visible conservando control en RAM", "EEPROM_SAVE_FAILED y storageFault", app.status().storageFault && Fake::event("EEPROM_SAVE_FAILED"));
-  else result("BOOT-01", "arranque sin comandos -> calibracion -> guardado", "calibracion automatica y EEPROM_SAVED", Fake::event("EEPROM_SAVED"));
+  else result("BOOT-01", "D8 al encender -> calibracion guiada -> guardado", "calibracion solicitada y EEPROM_SAVED", Fake::event("EEPROM_SAVED"));
+}
+void testExplicitCalibration() {
+  Fake::reset(); Fake::selected=true; Fake::preCalibrated=false;
+  Hand::Application app; app.begin(0); Fake::feed(app,1,5000);
+  assert(app.status().healthy && !app.status().closing && app.status().calibration==Hand::Calibration::IDLE);
+  assert(!Fake::event("CAL_PENDING"));
+  Fake::next=Diagnostics::Command::Calibrate; app.tick(5001); Fake::feed(app,5002,1);
+  result("CAL-START", "sin umbrales espera; c inicia sin reset", "sin medicion inesperada y CAL_PREP_REST", Fake::event("CAL_PREP_REST"));
 }
 void testHardwareFailures() {
   Fake::reset(); Fake::servoOk = false; Hand::Application servo; servo.begin(0);
@@ -163,5 +171,5 @@ void testHardwareFailures() {
 }
 int main() {
   testQueue(); testUiAndMotion(); testEndToEndAndRecovery();
-  testCalibration(false); testCalibration(true); testHardwareFailures();
+  testCalibration(false); testCalibration(true); testExplicitCalibration(); testHardwareFailures();
 }
