@@ -2,7 +2,7 @@
  * Mano InMoov con AD8232 ECG (UNIT Electronics, alimentacion 3.3 V).
  * Deteccion de actividad muscular experimental; ver limitaciones en README.
  * Adaptacion del ejemplo Arduino Robotic Hand de Kuldip.K Gami.
- * Hardware y temporizacion: Avance 1 del proyecto FSE, Arduino UNO.
+ * Hardware y temporizacion: Arduino UNO R3, ATmega328P a 16 MHz.
  * Ver README.md antes de alimentar el sensor o conectar los tensores.
  */
 #include <Arduino.h>
