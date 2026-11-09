@@ -1,3 +1,6 @@
 # Los scripts Bash necesitan LF incluso al clonar con core.autocrlf en Windows.
 *.sh text eol=lf
 *.py text eol=lf
+# La evidencia conserva sus bytes originales, incluidos BOM y finales de linea.
+docs/mediciones/**/*.csv -text
+docs/mediciones/**/*.json -text
