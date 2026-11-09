@@ -26,7 +26,7 @@ void Hand::Application::begin(uint32_t now) {
 }
 Hand::Application::Status Hand::Application::status() const {
   return {emgMode_, calibrated_, healthy_, outputFault_, storageFault_,
-          motion_.closed(), motion_.position(), calibration_.stage()};
+          motion_.closed(), motion_.position(), calibration_.stage(), muscle_.activity()};
 }
 void Hand::Application::requestHand(bool closed, uint32_t now) {
   if (outputFault_) return;
@@ -104,7 +104,7 @@ void Hand::Application::consume(const RawSample &raw, uint32_t now) {
   // D05: cada muestra una sola vez; calibracion con hora de adquisicion.
   // La rampa usa 'now' para no acelerarse al vaciar datos acumulados.
   updateCalibration(raw.capturedMs);
-  updateControl(now);
+  updateControl(raw.capturedMs, now);
 }
 void Hand::Application::updateCalibration(uint32_t now) {
   if (calibrationPending_ && motion_.isOpen() && healthy_ && !outputFault_) {
@@ -136,12 +136,12 @@ void Hand::Application::updateCalibration(uint32_t now) {
     default: break;
   }
 }
-void Hand::Application::updateControl(uint32_t now) {
+void Hand::Application::updateControl(uint32_t sampleTime, uint32_t motionTime) {
   if (!emgMode_ || calibrationPending_ || calibration_.running()) return;
   if (!healthy_ || !calibrated_ || calibration_.stage() == Calibration::FAILED) {
     muscle_.reset();
-    requestHand(false, now);
-  } else requestHand(muscle_.update(sample_.envelope, thresholds_), now);
+    requestHand(false, motionTime);
+  } else requestHand(muscle_.update(sample_.envelope, thresholds_, sampleTime), motionTime);
 }
 void Hand::Application::reportSignal(uint32_t now) {
   if (healthy_ == reportedHealthy_) return;
@@ -190,7 +190,7 @@ void Hand::Application::tick(uint32_t now) {
     case Diagnostics::Command::Open: cancelCalibration(now); break;
     case Diagnostics::Command::None: break;
   }
-  if (!healthy_) updateControl(now);
+  if (!healthy_) updateControl(now, now);
   if (!outputFault_ && motion_.update(now) && !Outputs::setPosition(motion_.position())) {
     outputFault_ = true;
     Diagnostics::event("SERVO_WRITE_FAILED", now, 0);

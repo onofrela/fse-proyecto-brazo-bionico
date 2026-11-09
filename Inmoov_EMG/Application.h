@@ -13,6 +13,7 @@ class Application {
     bool emgMode, calibrated, healthy, outputFault, storageFault, closing;
     uint16_t position;
     Calibration::Stage calibration;
+    uint16_t activity;
   };
   Status status() const;
  private:
@@ -25,7 +26,7 @@ class Application {
   void updateCalibration(uint32_t now);
   void signalLost(uint32_t now);
   void reportSignal(uint32_t now);
-  void updateControl(uint32_t now);
+  void updateControl(uint32_t sampleTime, uint32_t motionTime);
   Ad8232Signal signal_;
   Motion motion_;
   MuscleSwitch muscle_;
