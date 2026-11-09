@@ -28,11 +28,23 @@ int main() {
   assert(Diagnostics::dropped() == before + 3);
   Serial.pending = true; Serial.input = 'c';
   assert(Diagnostics::command() == Diagnostics::Command::Calibrate);
-  Serial.pending = true; Serial.input = '?';
+  Serial.pending = true; Serial.input = '!';
   assert(Diagnostics::command() == Diagnostics::Command::None);
   result("UART-F3", "read=-1 y comando invalido no generan orden", "ambos rechazados; c si inicia calibracion", Diagnostics::dropped() == before + 4);
   Diagnostics::togglePlot(); Diagnostics::Sample sample;
   sample.raw = 338; sample.baseline = 338;
   Diagnostics::plot(100, sample, {20, 40});
   result("UART-01", "linea de datos completa al recuperar capacidad", Serial.last.substr(0, Serial.last.size() - 1), Serial.last.find("D,100,338,338,") == 0);
+  Serial.pending=true; Serial.input='?';
+  assert(Diagnostics::command()==Diagnostics::Command::Status);
+  Diagnostics::requestStatus();
+  const Diagnostics::ControlStatus state={true,7,31,650};
+  Serial.capacity=0; const auto count=Serial.writes, lost=Diagnostics::dropped();
+  Diagnostics::update(101,state);
+  assert(Serial.writes==count && Diagnostics::dropped()==lost);
+  Serial.capacity=63; Diagnostics::update(102,state);
+  result("UART-STATUS", "consulta FW sin orden motora y sin bloquear TX", Serial.last.substr(0,Serial.last.size()-1), Serial.last.find("E,102,FW,6")==0);
+  for(uint32_t now=103;now<109;++now) Diagnostics::update(now,state);
+  Diagnostics::plot(400,sample,{8,12}); Diagnostics::update(400,state);
+  result("UART-ACTIVITY", "D seguido de ponderacion 0..1000", Serial.last.substr(0,Serial.last.size()-1), Serial.last.find("E,400,ACTIVITY,650")==0);
 }

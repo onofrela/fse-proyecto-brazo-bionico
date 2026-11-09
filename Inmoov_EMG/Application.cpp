@@ -22,6 +22,7 @@ void Hand::Application::begin(uint32_t now) {
   // D04: control autonomo con calibracion guardada; medir solo al solicitarlo.
   if (button_.value()) requestCalibration(now);
   else if (!calibrated_) Diagnostics::event("CAL_REQUIRED", now, 0);
+  Diagnostics::requestStatus();
   updateLed(now);
 }
 Hand::Application::Status Hand::Application::status() const {
@@ -129,10 +130,11 @@ void Hand::Application::updateCalibration(uint32_t now) {
       muscle_.reset();
       Diagnostics::event("TH_OPEN", now, thresholds_.open);
       Diagnostics::event("TH_CLOSE", now, thresholds_.close);
+      Diagnostics::requestStatus();
       break;
     case Calibration::FAILED:
       muscle_.reset();
-      Diagnostics::event("CAL_FAILED", now, calibration_.reason()); break;
+      Diagnostics::event("CAL_FAILED", now, calibration_.reason()); Diagnostics::requestStatus(); break;
     default: break;
   }
 }
@@ -187,7 +189,8 @@ void Hand::Application::tick(uint32_t now) {
   switch (Diagnostics::command()) {
     case Diagnostics::Command::Calibrate: requestCalibration(now); break;
     case Diagnostics::Command::TogglePlot: Diagnostics::togglePlot(); break;
-    case Diagnostics::Command::Open: cancelCalibration(now); break;
+    case Diagnostics::Command::Open: cancelCalibration(now); Diagnostics::event("CAL_CANCEL", now, 0); break;
+    case Diagnostics::Command::Status: Diagnostics::requestStatus(); break;
     case Diagnostics::Command::None: break;
   }
   if (!healthy_) updateControl(now, now);
@@ -207,4 +210,6 @@ void Hand::Application::tick(uint32_t now) {
   reportSignal(now);
   sample_.overruns = Acquisition::overruns();
   Diagnostics::plot(now, sample_, thresholds_);
+  Diagnostics::update(now, {calibrated_ && calibration_.stage()!=Calibration::FAILED,
+      calibration_.rest95(), calibration_.active70(), muscle_.activity()});
 }

@@ -4,8 +4,10 @@
 namespace {
 uint32_t droppedLines = 0;
 bool plotEnabled = false;
+uint8_t pendingStatus = 0;
 #if EMG_SERIAL_DEBUG
 uint32_t lastPlotMs = 0;
+uint32_t lastActivityMs = 0;
 void send(const char *line, int length, size_t capacity) {
   if (length <= 0 || size_t(length) >= capacity || Serial.availableForWrite() < length) {
     ++droppedLines; return; // Telemetria siempre de menor prioridad que control.
@@ -29,6 +31,7 @@ Diagnostics::Command Diagnostics::command() {
       case 'c': case 'C': return Command::Calibrate;
       case 'p': case 'P': return Command::TogglePlot;
       case 'x': case 'X': return Command::Open;
+      case '?': return Command::Status;
       case '\n': case '\r': break;
       default: ++droppedLines; break;
     }
@@ -64,3 +67,27 @@ void Diagnostics::plot(uint32_t now, const Sample &sample, const Hand::Threshold
 }
 void Diagnostics::togglePlot() { plotEnabled = !plotEnabled; }
 uint32_t Diagnostics::dropped() { return droppedLines; }
+void Diagnostics::requestStatus() { pendingStatus = 1; }
+void Diagnostics::update(uint32_t now, const ControlStatus &status) {
+#if EMG_SERIAL_DEBUG
+  // Solo auxiliar cuando TX esta vacio y lejos del proximo D; un evento/vuelta.
+  if (Serial.availableForWrite() < 63 ||
+      (plotEnabled && uint32_t(now-lastPlotMs) >= Config::PLOT_PERIOD_MS-20)) return;
+  if (pendingStatus) {
+    switch(pendingStatus++) {
+      case 1: event("FW",now,Config::FIRMWARE_VERSION); break;
+      case 2: event("HP_HZ",now,Config::FILTER_HIGH_PASS_HZ); break;
+      case 3: event("NOTCH_HZ",now,Config::FILTER_NOTCH_HZ); break;
+      case 4: event("CAL_VALID",now,status.calibrated); break;
+      case 5: event("HAND_ONLY",now,1); break;
+      case 6: event("REST_P95",now,status.rest95); break;
+      case 7: event("ACTIVE_P70",now,status.active70); pendingStatus=0; break;
+      default: pendingStatus=0; break;
+    }
+  } else if (plotEnabled && uint32_t(now-lastActivityMs)>=200) {
+    lastActivityMs=now; event("ACTIVITY",now,status.activity);
+  }
+#else
+  (void)now; (void)status;
+#endif
+}

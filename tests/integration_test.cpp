@@ -60,6 +60,8 @@ void Diagnostics::event(const char *name, uint32_t, uint32_t) { Fake::events.emp
 void Diagnostics::plot(uint32_t, const Sample &sample, const Hand::Thresholds &) { Fake::diagnostic = sample; }
 void Diagnostics::togglePlot() {}
 uint32_t Diagnostics::dropped() { return 0; }
+void Diagnostics::requestStatus() {}
+void Diagnostics::update(uint32_t, const ControlStatus &) {}
 
 void testQueue() {
   Hand::SampleQueue<4> queue;
