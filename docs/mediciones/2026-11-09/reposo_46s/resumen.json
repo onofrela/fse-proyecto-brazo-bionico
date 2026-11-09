@@ -1,0 +1,24 @@
+{
+  "samples": 469,
+  "valid_samples": 462,
+  "duration_s": 46.801,
+  "telemetry_hz_median": 10.0,
+  "gaps_over_250ms": 0,
+  "sessions": 1,
+  "raw_minus_baseline_rms_adc_valid": 8.395,
+  "envelope_mean_adc_valid": 6.907,
+  "envelope_max_adc_valid": 8,
+  "flag_counts": {
+    "Electrodos sin contacto": 0,
+    "Recorte": 0,
+    "Estabilizando": 7,
+    "ADC sin muestras recientes": 0
+  },
+  "adc_overruns_increment_observed": 0,
+  "dropped_logs_increment_observed": 0,
+  "note": "Estadísticas de telemetría a ~10 Hz, no de las 1000 muestras/s internas. RMS de valores recibidos; no es RMS EMG de banda completa. Los voltajes corresponden a OUTPUT, no al músculo. CLOSE es una orden, no movimiento medido.",
+  "source": "serial:COM3",
+  "invalid_lines": 0,
+  "events": 10,
+  "close_commands": 0
+}

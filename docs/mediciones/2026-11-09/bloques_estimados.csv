@@ -1,0 +1,8 @@
+﻿bloque,inicio_device_s,fin_device_s,muestras,p10,mediana,p90,maximo,media
+Reposo confirmado,2,10,80,5.0,5.0,6.0,6,5.39
+Pulgar (aprox.),11.2,21.2,100,5.0,7.0,14.1,27,8.4
+Índice (aprox.),21.2,31.2,100,7.0,14.5,27.4,46,16.44
+Medio (aprox.),31.2,41.2,100,7.0,21.0,35.2,53,21.33
+Anular (aprox.),41.2,51.2,100,8.0,21.5,37.1,58,22.52
+Meñique (aprox.),51.2,61.2,100,5.9,13.0,33.3,53,16.93
+Mano (aprox.),61.2,71.2,100,7.0,25.5,48.1,73,27.4
