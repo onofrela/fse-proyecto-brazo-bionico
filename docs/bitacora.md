@@ -1,6 +1,6 @@
 # Bitácora técnica de modularización
 
-Fecha de actualización: 2026-11-08 (America/Mexico_City). Registro de decisiones técnicas y verificaciones de software. Las mediciones físicas y revisiones del equipo se documentan por separado.
+Fecha de actualización: 2026-11-09 (America/Mexico_City). Registro de decisiones técnicas y verificaciones de software. Las mediciones físicas y revisiones del equipo se documentan por separado.
 
 Plataforma: Arduino UNO R3, arquitectura bare-metal e interrupciones. La revisión considera modularidad, comunicación, temporización, persistencia y evidencia de pruebas.
 
@@ -9,7 +9,7 @@ Plataforma: Arduino UNO R3, arquitectura bare-metal e interrupciones. La revisi�
 | D01: `Config.h`, clases de lógica | UNO, 32 KB Flash y 2048 B SRAM; memoria estática | Se conserva bare-metal. Se separan señal, calibración, decisión, entradas y movimiento. Cada parámetro de operación tiene nombre. No se introduce RTOS ni memoria dinámica |
 | D02: `SampleQueue.h`, `Acquisition.cpp` | El diseño utiliza un búfer circular con índices. La base filtraba dentro de la ISR y publicaba solo el último resultado | Cola SPSC de 32 posiciones, 31 útiles; 7 bytes por muestra en AVR (tiempo 4, ADC 2, contacto 1), 224 B de entradas. Filtrado en el bucle. Acceso consumidor atómico; alarma al llenarse. Se recupera el mecanismo elegido y se reduce trabajo de ISR |
 | D03: `CalibrationStore.h`, `Storage.cpp` | EEPROM sin sistema de archivos; la base escribía la calibración completa sin verificación | Guardado en 10 pasos de un byte: invalidar firma (2), datos/checksum (6), confirmar firma (2). Se verifica cada byte antes de avanzar; solo escribir si EEPROM está lista. El contador se verifica antes de arrancar ADC. Un registro parcial se rechaza |
-| D04: `Application::begin` | Arranque autónomo sin Linux | `setup()` inicia módulos al encender, sin `while (!Serial)`. EEPROM válida evita recalibrar; sin ella se solicita la secuencia con la mano abierta. La interacción para calibrar es necesaria, pero el programa inicia sin PC |
+| D04: `Application::begin` | Arranque autónomo sin Linux | Se inicia sin esperar USB. Una calibración guardada permite operar; sin ella se mantiene abierto hasta c o D8 al encender. La medición deja de comenzar por sorpresa |
 | D05: `Application::consume` | ADC 1 kHz, filtro de 32 muestras y calibración | Se usa la hora de adquisición, no la de extracción. Datos con edad >10 ms, huecos >10 ms y pérdidas invalidan la ventana; se exigen 2000 muestras estables. Se evita que una lectura vieja parezca reciente |
 | D06: `Application::tick`, ISR comentadas | Prioridades relativas, muestreo/PWM por hardware e interfaz no bloqueante | Seguridad y muestras primero; luego UI/comandos, rampa/LED, EEPROM incremental y UART. Máximo 31 muestras y un comando por vuelta. ISR sin filtrado, texto ni EEPROM. Se conservan Timer0 y Timer1 |
 
@@ -33,8 +33,8 @@ No hay procesos, hilos, syscalls ni IPC de SO. La comunicación que reemplaza el
 ## Cifras y desviaciones
 
 - UI pasa de la propuesta 10/20 ms a muestreo 5 ms y debounce 10 ms para ajustarse a R9 <=20 ms. En el ensayo simulado de botón, las cinco fases producen como máximo 14 ms; falta osciloscopio y selector físico.
-- El recorrido ordenado de R2 resulta 780 ms frente a <=1000 ms en el modelo; no mide las falanges. El primer paso frente a un escalón sintético resulta 12 ms; no es la latencia física de R1.
-- El AD8232 entrega señal ECG acondicionada, no una envolvente muscular lista. Se conserva la adaptación de la base: extracción DC/rectificación/ventana. El ensayo R1 original debe redefinir la referencia de disparo para esta tarjeta y R6 debe demostrar separación de actividad muscular/ECG/artefactos. Alimentación corregida a 3.3 V.
+- El recorrido ordenado de R2 resulta 780 ms frente a <=1000 ms en el modelo; no mide las falanges. El primer paso ponderado resulta 71 ms en el ensayo sintético actual: no cumple ni demuestra R1 de 50 ms.
+- El AD8232 entrega señal ECG acondicionada, no una envolvente muscular lista. Se incorpora SignalFilter entre centrado y rectificación, manteniendo la cola y las ISR breves. El ensayo R1 original debe redefinir la referencia de disparo para esta tarjeta y R6 debe demostrar separación de actividad muscular/ECG/artefactos. Alimentación corregida a 3.3 V.
 - El muestreo nominal se calcula como 16 MHz / 64 / 250 = 1000 Hz. D2 da 1000 flancos/s y una onda de 500 Hz. El periodo y jitter no se han medido.
 - La memoria se verifica con compilación AVR en la matriz de requisitos. El margen de SRAM publicado es para pila/temporales; no es una medición de máximo uso de pila.
 - Los casos F1-SW/F2-SW recuperan control sin reset en simulación. El F2 original (dedo bloqueado) requiere carga mecánica y medición del riel; no se detecta bloqueo porque no existe sensor de corriente, fuerza o posición.
@@ -50,3 +50,18 @@ Pendientes de validación: cargar y probar la versión etiquetada; ejecutar el p
 ## Historial detallado y apoyos
 
 El historial de `main` separa los cambios por responsabilidad. Los sketches existentes de servo y ADC se versionan como herramientas independientes de apoyo; su compilacion se verifico, pero no se agregan resultados fisicos inventados. La evolucion de cada modulo y su documentacion se registra en `modularizacion-paso-a-paso.md`.
+
+## Ajuste con evidencia del sensor
+
+| Decisión | Evidencia y resultado |
+| --- | --- |
+| D07: SignalFilter separado | HP30, rechazo 60 Hz y LP200; enteros Q12/Q6; respuesta sintética y reset probados. Sin validación de eliminación completa de ECG en placa |
+| D08: Calibración explícita y robusta | Las capturas iniciales muestran desajuste de ventanas. Se guía 3/6/3/10 s, con histogramas y diagnóstico; Storage conserva su transacción incremental |
+| D09: Mano completa ponderada | Las amplitudes por dedo se superponen. Se usa actividad/reposo con suavizado, cierre mínimo de 900 ms y apertura prioritaria por falla |
+| D10: Evidencia original separada | Dos CSV reales, eventos, gráficas y capturas con SHA256. Los replays y dobles se identifican como simulación; no se afirma validación física del firmware nuevo |
+
+La ponderación de un replay de envolventes llega al recorrido ordenado completo. No mide fuerza, movimiento físico, consumo ni la respuesta real del filtro analógico. Las nuevas funciones requieren cargar el firmware y recalibrar con firma 0xE706.
+
+## Incidencia abierta: volatilidad del sensor
+
+El módulo presenta señal muy variable y falta identificar la causa. Se investigan soldaduras, posibles daños del módulo, jumpers/contactos, alimentación y condiciones de adquisición. Son hipótesis, no fallas confirmadas. Se documentará cada cambio y su efecto sin considerar que un ajuste de filtros o umbrales repare el montaje. Véase [el plan de diagnóstico](diagnostico-sensor.md).

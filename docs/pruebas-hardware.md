@@ -1,12 +1,16 @@
 # Protocolo de demostración y medición física
 
-Estado: pendiente de ejecución con placa, batería y mano. Completar los resultados con capturas, sin copiar los números de simulación como mediciones reales. Registrar fecha, autor, etiqueta/commit, equipo, versión de dependencias, ajustes de `Config.h`, batería, carga y archivos de evidencia.
+Hay capturas previas del sensor en [mediciones](mediciones/2026-11-09/README.md). La validación física de v0.6.0 con placa, batería y mano sigue pendiente. Completar los resultados con capturas, sin copiar los números de simulación como mediciones reales. Registrar fecha, autor, etiqueta/commit, equipo, versión de dependencias, ajustes de `Config.h`, batería, carga y archivos de evidencia.
+
+## Diagnóstico previo de la señal
+
+Antes de declarar estable el montaje, ejecutar y documentar el [plan del sensor](diagnostico-sensor.md). La causa de la volatilidad sigue abierta; comprobar soldaduras, jumpers, contactos y módulo cambiando una variable a la vez. Conservar los ensayos que apoyen o descarten cada hipótesis.
 
 ## Arranque, cableado y flujo
 
 1. Revisar la tabla de pines del README y `arquitectura.md`; verificar AD8232 a 3.3 V, masas y fuente de servos. Ajustar límites con tensores sueltos antes de accionar la mano.
 2. Compilar/cargar la etiqueta correspondiente. Seleccionar manual (D9 a GND) y comprobar una pulsación por cierre/apertura, RGB y los cinco servos.
-3. Cortar y restablecer alimentación sin USB; confirmar arranque autónomo y apertura. Con EEPROM válida, comprobar umbrales guardados. Sin registro válido, comprobar calibración solicitada y mano abierta.
+3. Cortar y restablecer alimentación sin USB; confirmar arranque autónomo y apertura. Con EEPROM válida, comprobar umbrales guardados. Sin registro válido, comprobar mano abierta y espera hasta solicitar calibración con c o D8 al encender.
 4. Medir reposo/contracción y exigir separación repetible. En EMG comprobar reposo para armar, cierre por actividad y apertura al relajar. Los datos UART a 10 Hz no reconstruyen la forma de onda.
 5. Confirmar `overruns=0` y registro sin descartes durante la captura. Si se descartan líneas, repetir la captura; no completar métricas con un registro incompleto.
 
