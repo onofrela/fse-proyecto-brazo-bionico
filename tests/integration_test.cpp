@@ -100,39 +100,47 @@ void testUiAndMotion() {
   result("R2-SW", "recorrido ordenado <=1000 ms", std::to_string(finish) + " ms simulados", finish > 0 && finish <= 1000);
 }
 void testEndToEndAndRecovery() {
-  Fake::reset(); Fake::selected = true; Hand::Application app; app.begin(0);
-  Fake::feed(app, 1, 2000);
-  assert(app.status().healthy && !app.status().closing);
-  uint32_t closeAt = 0;
-  for (uint32_t now = 2001; now < 2101; ++now) {
-    Fake::feed(app, now, 1, 100);
-    if (app.status().closing && !closeAt) closeAt = now;
-  }
-  result("E2E-01", "ADC sintetico -> cola -> filtro -> umbral -> servo y LED", "cierre con primer paso y LED verde", closeAt && Fake::position > 0 && Fake::green);
-  result("R1-SW", "primer paso <=50 ms desde escalon sintetico", std::to_string(closeAt - 2001) + " ms simulados (sin PWM fisico)", closeAt - 2001 <= 50);
-  Fake::feed(app, 2101, 1, 0, true);
-  assert(!app.status().closing && !app.status().healthy);
-  Fake::feed(app, 2102, 1999);
-  assert(!app.status().healthy);
-  Fake::feed(app, 4101, 1);
-  assert(app.status().healthy);
-  Fake::feed(app, 4102, 100, 100);
-  result("F1-SW", "LO alto abre; 2000 muestras y reposo permiten nuevo cierre sin reset", "apertura y recuperacion con nuevo cierre", app.status().closing);
-  app.tick(4212); // >10 ms sin conversion.
-  assert(!app.status().healthy && !app.status().closing);
-  Fake::feed(app, 4213, 1999); assert(!app.status().healthy);
-  Fake::feed(app, 6212, 1); assert(app.status().healthy);
-  Fake::feed(app, 6213, 100, 100);
-  result("F2-SW", "ADC detenido abre; recuperacion sin reset tras estabilizar", "timeout detectado y nuevo cierre", app.status().closing);
-  for (uint32_t now = 6313; now < 6345; ++now) Fake::push(now);
-  app.tick(6344);
-  result("F3-SW", "cola llena inhibe EMG y descarta pendientes", "orden de apertura y alarma de perdida", !app.status().healthy && !app.status().closing && (Fake::diagnostic.faults & Config::FAULT_DATA_LOSS));
-  Fake::feed(app, 6345, 2000); assert(app.status().healthy);
-  Fake::push(8344, 338); app.tick(8355);
+  Fake::reset(); Fake::selected=true; Hand::Application app; app.begin(0); uint32_t now=0;
+  auto feed=[&](uint32_t count, int amplitude=0, bool leadsOff=false) {
+    Fake::feed(app,now+1,count,amplitude,leadsOff); now+=count;
+  };
+  feed(2200); assert(app.status().healthy && !app.status().closing);
+  const uint32_t started=now+1; uint32_t closeAt=0;
+  for(int i=0;i<200;++i) { feed(1,100); if(app.status().closing && !closeAt) closeAt=now; }
+  result("E2E-01", "ADC -> cola -> filtro -> ponderacion -> servo", "cierre con primer paso y LED verde", closeAt && Fake::position>0 && Fake::green);
+  result("LAT-SW", "primer paso <200 ms sinteticos; R1 de 50 ms no demostrado", std::to_string(closeAt-started)+" ms simulados", closeAt && closeAt-started<200);
+  feed(1,0,true); assert(!app.status().healthy && !app.status().closing);
+  feed(1999); assert(!app.status().healthy); feed(1); assert(app.status().healthy);
+  feed(200); feed(200,100);
+  result("F1-SW", "falla interrumpe retencion; estabilizacion y reposo rearman", "nuevo cierre sin reset", app.status().closing);
+  now+=11; app.tick(now); assert(!app.status().healthy && !app.status().closing);
+  feed(2200); feed(200,100);
+  result("F2-SW", "ADC detenido abre y permite recuperacion", "timeout y nuevo cierre", app.status().closing);
+  for(uint32_t i=1;i<=32;++i) Fake::push(now+i);
+  now+=32; app.tick(now);
+  result("F3-SW", "cola llena inhibe EMG y descarta pendientes", "apertura y bit de perdida", !app.status().healthy && !app.status().closing && (Fake::diagnostic.faults & Config::FAULT_DATA_LOSS));
+  feed(2200); assert(app.status().healthy);
+  Fake::push(now); now+=11; app.tick(now);
   result("F4-SW", "muestra de 11 ms no renueva salud", "muestra antigua rechazada", !app.status().healthy);
-  Fake::feed(app, 8356, 2000); assert(app.status().healthy);
-  Fake::push(10370); app.tick(10370);
-  result("F9-SW", "hueco >10 ms seguido de muestra nueva reinicia estabilizacion", "nueva muestra aceptada sin habilitar EMG", !app.status().healthy && !app.status().closing);
+  feed(2200); assert(app.status().healthy);
+  now+=14; Fake::push(now); app.tick(now);
+  result("F9-SW", "hueco seguido de muestra nueva reinicia estabilizacion", "no habilita EMG", !app.status().healthy && !app.status().closing);
+}
+uint16_t bufferedActivity(unsigned batch) {
+  Fake::reset(); Fake::selected=true; Hand::Application app; app.begin(0);
+  for(uint32_t end=batch;end<=2280;end+=batch) {
+    for(uint32_t time=end-batch+1;time<=end;++time) {
+      const int amplitude=time<=2200 ? 0 : 100;
+      Fake::push(time,uint16_t(338+((time/10)%2 ? amplitude : -amplitude)));
+    }
+    app.tick(end);
+  }
+  assert(app.status().healthy);
+  return app.status().activity;
+}
+void testBufferedDecisionClock() {
+  const auto single=bufferedActivity(1), batched=bufferedActivity(5);
+  result("IPC-TIME", "ponderacion identica al consumir 1 o 5 muestras por vuelta", std::to_string(single)+" / "+std::to_string(batched), single>0 && single==batched);
 }
 void testCalibration(bool saveFailure) {
   Fake::reset(); Fake::selected = true; Fake::preCalibrated = false; Fake::saveOk = !saveFailure;
@@ -162,14 +170,15 @@ void testHardwareFailures() {
   Fake::feed(adc, 1, 2100, 100);
   result("F7-SW", "fallo de arranque ADC inhibe EMG", "ADC_INIT_FAILED sin cierre", !adc.status().healthy && !adc.status().closing && Fake::event("ADC_INIT_FAILED"));
   Fake::reset(); Fake::selected = true; Hand::Application clipping; clipping.begin(0);
-  Fake::feed(clipping, 1, 2000); Fake::feed(clipping, 2001, 100, 100);
-  Fake::push(2101, Config::ADC_HIGH_CLIP); clipping.tick(2101);
+  Fake::feed(clipping, 1, 2200); Fake::feed(clipping, 2201, 200, 100);
+  assert(clipping.status().closing);
+  Fake::push(2401, Config::ADC_HIGH_CLIP); clipping.tick(2401);
   result("F8-SW", "recorte alto abre e invalida filtro", "sin cierre ni salud y bit de recorte", !clipping.status().closing && !clipping.status().healthy && (Fake::diagnostic.faults & Config::FAULT_CLIPPED));
   Fake::reset(); Hand::Application wrap; wrap.begin(UINT32_MAX - 20);
   Fake::feed(wrap, UINT32_MAX - 19, 2100);
   result("TIME-01", "millis cruza UINT32_MAX sin falsa falla", "salud conservada tras wrap", wrap.status().healthy);
 }
 int main() {
-  testQueue(); testUiAndMotion(); testEndToEndAndRecovery();
+  testQueue(); testUiAndMotion(); testEndToEndAndRecovery(); testBufferedDecisionClock();
   testCalibration(false); testCalibration(true); testExplicitCalibration(); testHardwareFailures();
 }
