@@ -111,3 +111,7 @@ Se organiza la evidencia de los requisitos R1..R10, separando codigo implementad
 ## Procedimiento de laboratorio
 
 Se detalla como medir lo que sigue pendiente y como usar los dos sketches de apoyo por separado, sin confundir orden de servo ni lecturas crudas con resultados del sistema integrado.
+
+## README consolidado
+
+Se actualiza el mapa de modulos y se unen instalacion, pruebas, herramientas de apoyo y limites de validacion. El README fue cambiando desde el plan inicial y las guias de cada apoyo.
