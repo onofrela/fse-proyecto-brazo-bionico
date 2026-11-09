@@ -85,40 +85,45 @@ void testDebounce() {
   assert(b.update(true, 1));
 }
 
-void runCalibration(Calibration &c, uint16_t rest, uint16_t active,
-                    bool noisy = false, uint32_t start = 0) {
-  c.start(start);
-  for (uint32_t ms = 1; ms <= 10000; ++ms) {
-    const bool contracting = c.stage() == Calibration::ACTIVE ||
-                             c.stage() == Calibration::PREPARE_ACTIVE;
-    uint16_t value = contracting ? active : rest;
-    if (noisy && c.stage() == Calibration::REST && ms % 500 == 0) value += 200;
-    c.update(start + ms, value, true);
+void runCalibration(Calibration &c, int mode=0, uint32_t origin=0) {
+  c.start(origin);
+  for(uint32_t ms=1; ms<=22000; ++ms) {
+    uint16_t value=5;
+    if(c.stage()==Calibration::REST && mode==2 && ms%1000<20) value=150;
+    if(c.stage()==Calibration::REST && mode==4) value=ms%200<100 ? 5 : 25;
+    if(c.stage()==Calibration::ACTIVE) {
+      value=(ms%2000<1000) ? 30 : 5;
+      if(mode==1) value=5;
+      if(mode==3) value=300;
+    }
+    c.update(origin+ms,value,true);
   }
 }
 
-void testCalibration() {
+void testRobustCalibration() {
   Calibration c;
-  runCalibration(c, 100, 500);
-  assert(c.stage() == Calibration::SUCCESS);
-  assert(c.thresholds().open == 200 && c.thresholds().close == 300);
-  runCalibration(c, 100, 105);
-  assert(c.stage() == Calibration::FAILED); // Contraccion insuficiente.
-  runCalibration(c, 100, 500, true);
-  assert(c.stage() == Calibration::FAILED); // Reposo demasiado ruidoso.
-  runCalibration(c, 1023, 1023);
-  assert(c.stage() == Calibration::FAILED);
-  runCalibration(c, 100, 500, false, 0xFFFFF000UL);
-  assert(c.stage() == Calibration::SUCCESS);
+  runCalibration(c);
+  assert(c.stage()==Calibration::SUCCESS);
+  assert(c.rest95()==5 && c.active70()==31);
+  assert(c.thresholds().open==8 && c.thresholds().close==12);
+  runCalibration(c,1);
+  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::LOW_SEPARATION);
+  runCalibration(c,2);
+  assert(c.stage()==Calibration::SUCCESS);
+  runCalibration(c,3);
+  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::RANGE_EXCEEDED);
+  runCalibration(c,4);
+  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::LOW_SEPARATION);
+  runCalibration(c,0,0xFFFFF000UL); assert(c.stage()==Calibration::SUCCESS);
+  c.start(0); c.update(1,5,false);
+  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::SIGNAL_LOST);
   c.start(0);
-  c.update(1, 100, false);
-  assert(c.stage() == Calibration::FAILED);
-  c.start(0);
-  for (uint32_t now = 10; now <= 5000; now += 10) c.update(now, 100, true);
-  assert(c.stage() == Calibration::FAILED); // No aceptar adquisicion incompleta.
-  c.cancel();
-  assert(c.stage() == Calibration::IDLE && !c.running());
+  for(uint32_t ms=100; ms<=9000; ms+=100) c.update(ms,5,true);
+  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::TOO_FEW_SAMPLES);
+  c.cancel(); assert(!c.running() && c.stage()==Calibration::IDLE);
 }
+
+void testCalibration() { testRobustCalibration(); }
 
 void testFilteredControl() {
   MovingAverage f;
@@ -187,7 +192,7 @@ void testAd8232CalibrationAndContactLoss() {
   Calibration c;
   for (int i = 0; i < 2000; ++i) signal.add(338, false);
   c.start(0);
-  for (uint32_t now = 1; now <= 10000; ++now) {
+  for (uint32_t now = 1; now <= 22000; ++now) {
     const bool active = c.stage() == Calibration::PREPARE_ACTIVE ||
                         c.stage() == Calibration::ACTIVE;
     const int amplitude = active ? 100 : 2;

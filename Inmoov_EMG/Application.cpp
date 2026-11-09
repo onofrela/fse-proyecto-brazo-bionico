@@ -19,8 +19,9 @@ void Hand::Application::begin(uint32_t now) {
   if (outputFault_) Diagnostics::event("SERVO_INIT_FAILED", now, 0);
   if (acquisitionFault_) Diagnostics::event("ADC_INIT_FAILED", now, 0);
   if (storageFault_) Diagnostics::event("EEPROM_BOOT_FAILED", now, 0);
-  // D04: arranque autonomo, sin esperar PC, USB ni comando serial.
-  if (!calibrated_ || button_.value()) requestCalibration(now);
+  // D04: control autonomo con calibracion guardada; medir solo al solicitarlo.
+  if (button_.value()) requestCalibration(now);
+  else if (!calibrated_) Diagnostics::event("CAL_REQUIRED", now, 0);
   updateLed(now);
 }
 Hand::Application::Status Hand::Application::status() const {
@@ -116,10 +117,10 @@ void Hand::Application::updateCalibration(uint32_t now) {
   calibration_.update(now, sample_.envelope, healthy_);
   if (previous == calibration_.stage()) return;
   switch (calibration_.stage()) {
-    case Calibration::REST: Diagnostics::event("CAL_REST", now, Config::CAL_MEASURE_MS); break;
+    case Calibration::REST: Diagnostics::event("CAL_REST", now, Config::CAL_REST_MS); break;
     case Calibration::PREPARE_ACTIVE:
       Diagnostics::event("CAL_PREP_CONTRACT", now, Config::CAL_PREPARE_MS); break;
-    case Calibration::ACTIVE: Diagnostics::event("CAL_CONTRACT", now, Config::CAL_MEASURE_MS); break;
+    case Calibration::ACTIVE: Diagnostics::event("CAL_CONTRACT", now, Config::CAL_ACTIVE_MS); break;
     case Calibration::SUCCESS:
       thresholds_ = calibration_.thresholds();
       calibrated_ = true;
@@ -131,7 +132,7 @@ void Hand::Application::updateCalibration(uint32_t now) {
       break;
     case Calibration::FAILED:
       muscle_.reset();
-      Diagnostics::event("CAL_FAILED", now, 0); break;
+      Diagnostics::event("CAL_FAILED", now, calibration_.reason()); break;
     default: break;
   }
 }
