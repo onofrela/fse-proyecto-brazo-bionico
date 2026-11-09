@@ -6,12 +6,29 @@ La implementación conserva la plataforma y los pines de actuadores del proyecto
 
 La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
-## Archivos
+## Código modular
 
-- `Inmoov_EMG/Inmoov_EMG.ino`: adquisición ADC, interrupciones, modos, servos, LED y EEPROM.
-- `Inmoov_EMG/Config.h`: pines, polaridad del RGB y límites de pulso de cada servo.
-- `Inmoov_EMG/Control.h`: eliminación de nivel DC, rectificación, envolvente, histéresis, antirrebote, calibración y movimiento.
-- `tests/control_test.cpp`: pruebas de la lógica en una computadora, sin accionar motores.
+El punto de entrada solo llama a `Application::begin()` y `Application::tick()`.
+Los comentarios `D01` a `D06` enlazan decisiones concretas con [la bitácora técnica](docs/bitacora.md).
+
+| Módulo | Responsabilidad |
+| --- | --- |
+| `Config.h` | Pines, tiempos, límites y direcciones EEPROM con nombre |
+| `Acquisition.h/.cpp` | Timer2/ADC, ISR breve, cola circular y secciones atómicas |
+| `SampleQueue.h` | Comunicación SPSC de muestras completas con marca de tiempo |
+| `Signal.h` | Nivel DC, rectificación, media móvil y estabilización |
+| `Decision.h` | Umbrales, histéresis y rearme en reposo |
+| `Calibration.h` | Máquina de estados para medir reposo y contracción |
+| `Motion.h` | Rampa simultánea y conversión a pulsos |
+| `Inputs.h` | Antirrebote de botón y selector |
+| `Outputs.h/.cpp` | GPIO, RGB y cinco servos; deshace un arranque parcial |
+| `Storage.h/.cpp`, `CalibrationStore.h` | EEPROM verificada y guardado incremental |
+| `Diagnostics.h/.cpp` | Comandos y telemetría UART de baja prioridad |
+| `Application.h/.cpp` | Coordinación de módulos y recuperación de fallas |
+| `Control.h` | Fachada de compatibilidad de la lógica portable |
+| `tests/`, `scripts/` | Pruebas con fallas inducidas y compilación reproducible |
+
+[Diagrama conectado](docs/arquitectura.md) · [Matriz de requisitos](docs/requisitos.md) · [Resultados esperados y obtenidos](docs/resultados-pruebas.md) · [Protocolo físico](docs/pruebas-hardware.md).
 
 ## Compatibilidad del sensor y alimentación
 
@@ -76,7 +93,7 @@ Al reconectar electrodos o salir de un recorte, el procesamiento espera 2000 mue
 
 Si la diferencia media de envolvente entre contracción y reposo es menor que `MIN_CALIBRATION_RANGE` (12 cuentas por defecto, unos 59 mV con AVcc=5 V), hay pérdida de contacto, recorte, ruido excesivo o faltan muestras, se rechaza la calibración. Los umbrales de apertura y cierre quedan al 25% y 50% de la diferencia medida sobre la envolvente media de reposo. La apertura debe superar también el máximo de reposo en más de `REST_NOISE_MARGIN` (2 cuentas por defecto). Estos valores son parámetros iniciales de software; deben validarse con la tarjeta real.
 
-Una calibración correcta se guarda en EEPROM. **La calibración del sensor anterior se invalida automáticamente** al cargar esta versión, porque los umbrales ahora corresponden a otra magnitud. Al entrar al modo de señal, primero hay que relajar por debajo del umbral de apertura para habilitar el primer cierre. Después, una envolvente por encima del umbral de cierre cierra la mano; por debajo del umbral de apertura la abre. Entre ambos umbrales conserva el estado para evitar oscilaciones por ruido.
+Una calibración correcta se guarda en EEPROM; `EEPROM_SAVED` confirma que se verificó. Se conserva el formato AD8232 `0xE702` de la base: las calibraciones válidas de esa base siguen siendo compatibles. Los registros del sensor anterior (`0xE701`) se rechazan. Al entrar al modo de señal, primero hay que relajar por debajo del umbral de apertura para habilitar el primer cierre. Después, una envolvente por encima del umbral de cierre cierra la mano; por debajo del umbral de apertura la abre. Entre ambos umbrales conserva el estado para evitar oscilaciones por ruido.
 
 Para recalibrar, envía `c` por el monitor serie, o mantén D8 presionado al encender/reiniciar y suéltalo al comenzar la secuencia. Conviene recalibrar si cambian electrodos, colocación o ganancia. Durante una recalibración fallida se conserva la anterior en EEPROM, pero EMG queda inhibido en esa sesión hasta repetir con éxito o cambiar de modo. El control manual sigue disponible.
 
@@ -84,15 +101,16 @@ Indicadores de operación: rojo = manual abierto; amarillo = manual cerrando/cer
 
 ## Temporización y diagnóstico
 
-- **Timer2:** CTC, prescaler 64, OCR2A=249; solicita una conversión cada 1 ms.
-- **ADC:** A0/AVcc, prescaler 128, reloj ADC de 125 kHz. `ADC_vect` lee además LO+/LO− y actualiza el procesamiento de señal. El bucle toma una copia atómica del resultado y decide el movimiento.
-- **Procesamiento:** IIR del nivel DC (`base += (raw - base)/256`, con precisión Q8), magnitud `abs(raw-base)` y media móvil de 32 magnitudes. El seguimiento DC tiene constante aproximada de 256 ms a 1 kHz; la ventana de magnitud es de 32 ms. No se promedia primero la señal alterna, porque eso cancelaría sus semiondas.
-- **Timer1:** reservado a la biblioteca Servo para cinco trenes de pulsos de aproximadamente 50 Hz. Se usa su implementación, sin sobrescribir sus registros.
-- **Timer0:** permanece con la configuración del núcleo Arduino para `millis()`.
-- **Movimiento:** avance simultáneo de 25/1000 del recorrido cada 20 ms, con un primer paso inmediato al aceptar la orden. Recorrido ordenado completo en 780–800 ms nominales, reversible en cualquier punto. El tiempo físico debe medirse.
-- **Interfaz:** lectura cada 5 ms y antirrebote estable de 10 ms. Se ajustan los tiempos de 10/20 ms porque esa combinación puede superar el límite R9 de 20 ms.
-- **D2:** conmuta en cada ISR ADC. El periodo entre flancos consecutivos debe ser 1 ms; la onda completa es de **500 Hz**, no 1 kHz. Desactiva con `EMG_SAMPLE_PROBE=0` si usas D2 para otra cosa.
-- **EEPROM:** contador de arranques en bytes 0–7; umbrales con firma AD8232 versión 2 (`0xE702`) y comprobación en bytes 16–23. Se conserva el contador de arranques de la versión anterior, pero se rechazan sus umbrales. El contador cambia una vez por arranque, la calibración solo al completar una nueva medición. Una escritura interrumpida puede invalidar el registro, que se rechaza en el próximo arranque; no es un registro de reinicios tolerante a fallas ni tiene reparto de desgaste.
+- **Timer2:** CTC, prescaler 64, OCR2A=249; solicita una conversión cada 1 ms. Si el ADC sigue ocupado o su resultado no fue recogido, registra pérdida.
+- **ADC:** A0/AVcc, prescaler 128, reloj ADC de 125 kHz. La ISR publica ADC, LO+/LO− y `millis()` en una cola circular estática de 32 posiciones (31 útiles). La primera conversión tiene timeout de 1000 us; se comprueba la configuración por lectura de registros.
+- **Sincronización:** productor ISR y consumidor `loop`; extracción y alarmas protegidas con `ATOMIC_RESTORESTATE`. `volatile` da visibilidad, la sección crítica da atomicidad. No existen procesos ni hilos de SO en este diseño bare-metal.
+- **Procesamiento en el bucle:** IIR del nivel DC (`base += (raw - base)/256`, precisión Q8), magnitud `abs(raw-base)` y media móvil de 32 magnitudes. Se procesa cada muestra una sola vez, hasta 31 por vuelta. La ISR no filtra ni escribe UART/EEPROM.
+- **Timer1:** reservado a Servo para cinco trenes de pulsos de aproximadamente 50 Hz. Timer0 conserva `millis()`/`micros()`. Las ISR AVR no se anidan ni tienen prioridades de RTOS configurables; véase la diferencia entre prioridad relativa y orden de vectores en la bitácora.
+- **Movimiento:** avance de 25/1000 cada 20 ms y primer paso inmediato: 780 ms en la simulación con bucle de 1 ms. La duración real requiere video; la rampa no recupera pasos atrasados de golpe.
+- **Interfaz:** muestreo cada 5 ms y antirrebote de 10 ms. Máximo observado de 14 ms en las cinco fases del ensayo de botón con bucle simulado de 1 ms; no garantiza la latencia eléctrica del montaje.
+- **Prioridades del bucle:** seguridad/muestras, UI/comandos, rampa/LED, un paso EEPROM y telemetría. Trabajo acotado; UART descarta sin esperar espacio.
+- **D2:** un flanco por conversión: 1 ms entre flancos, onda completa de 500 Hz. `EMG_SAMPLE_PROBE=0` libera D2.
+- **EEPROM:** contador y complemento en 0–7, calibración AD8232 (`0xE702`) en 16–23. Contador escrito y releído al arrancar, antes de ADC. Calibración: invalidar firma, escribir datos y checksum, confirmar firma al final; como máximo un byte por vuelta si EEPROM está lista y lectura posterior de cada byte. `EEPROM_SAVED` confirma persistencia; `EEPROM_SAVE_FAILED` deja la calibración nueva solo en RAM. Un corte durante escritura puede perder la calibración persistida: se rechaza el registro parcial y se solicita calibrar al próximo arranque. No hay sistema de archivos, reparto de desgaste ni recuperación garantizada del contador tras un corte durante su escritura.
 
 No uses `tone()`, `analogRead()` ni reconfigures Timer1/Timer2 mientras este firmware esté activo. No se usa `analogWrite()` para los servos; Servo genera sus señales por interrupciones incluso en los pines no marcados como PWM.
 
@@ -104,56 +122,71 @@ Monitor serie a **115200 baud**:
 
 Eventos: `E,milisegundos,nombre,valor`, por ejemplo `E,12345,CLOSE,25`. `BOOT` informa el contador persistente; `MODE` usa 0 para manual y 1 para EMG. `TH_OPEN` y `TH_CLOSE` informan los umbrales calibrados. Los eventos `CLOSE` permiten contar las detecciones en R6, pero no son mediciones de movimiento real.
 
-Datos: `D,milisegundos,ADC_crudo,base_DC,envolvente,umbral_abrir,umbral_cerrar,estado,overruns,logs_descartados`. `estado` combina bits: 1 = LO+/LO− alto; 2 = recorte/rango inválido; 4 = procesamiento aún no listo; 8 = ADC sin muestras recientes. Pueden sumarse varios bits. `estado=0` solo indica que estos controles de señal pasan; no certifica que la actividad sea una contracción voluntaria.
+Datos: `D,milisegundos,ADC_crudo,base_DC,envolvente,umbral_abrir,umbral_cerrar,estado,overruns,logs_descartados`. `estado` combina bits: 1 = LO+/LO− alto; 2 = recorte/rango inválido; 4 = procesamiento aún no listo; 8 = ADC sin muestras recientes; 16 = pérdida de datos sin recuperación completa; 32 = falla de inicialización ADC o de salida a servos. Pueden sumarse varios bits. `estado=0` solo indica que estos controles de señal pasan; no certifica que la actividad sea una contracción voluntaria.
 
-Los datos a 10 Hz sirven para ver niveles y estados, no para reconstruir la forma de onda ECG. Los overruns cuentan solicitudes de conversión que encontraron el ADC ocupado. La UART descarta líneas si no hay espacio para evitar bloquear el control; en una prueba de registro, verifica que no se descarten líneas. Puedes compilar con `EMG_SERIAL_DEBUG=0` para desactivar UART; seguirá disponible la calibración con D8 al arranque.
+Los datos a 10 Hz sirven para ver niveles y estados, no para reconstruir la forma de onda ECG. Los overruns cuentan pérdidas detectadas por ADC ocupado/pendiente o cola llena; el contador satura en 65535. No cuentan muestras omitidas si Timer2 deja de funcionar. La UART descarta líneas si no hay espacio para evitar bloquear el control; en una prueba de registro, verifica que no se descarten líneas. Puedes compilar con `EMG_SERIAL_DEBUG=0` para desactivar UART; seguirá disponible la calibración con D8 al arranque.
 
-Un LO alto, falta de muestras durante más de 10 ms o una muestra próxima a los rieles del AD8232 ordenan apertura en modo de señal. Por defecto se considera recorte `raw <= 5` o `raw >= 669`, calculado para sensor de 3.3 V y AVcc=5 V. `ADC_REFERENCE_MV`, `SENSOR_SUPPLY_MV` y márgenes están en `Config.h`; si se ajustan según mediciones, recalibra. El recorte invalida la ventana y exige otra estabilización de 2 s. Una falla durante la calibración la rechaza y requiere repetirla; en operación normal la señal puede recuperarse automáticamente, exigiendo reposo antes del siguiente cierre. La apertura conserva la rampa del mecanismo; no es una desconexión de potencia.
+Un LO alto, falta de muestras o hueco de adquisición de más de 10 ms, cola desbordada o recorte ordenan apertura en modo de señal. Una muestra cuya edad supera 10 ms se descarta: leer datos viejos no renueva la salud del sensor. Por defecto se considera recorte `raw <= 5` o `raw >= 669`, calculado para sensor de 3.3 V y AVcc=5 V. `ADC_REFERENCE_MV`, `SENSOR_SUPPLY_MV` y márgenes están en `Config.h`; si se ajustan según mediciones, recalibra. El recorte, el hueco de adquisición o la pérdida de datos invalidan la ventana y exigen otras 2000 muestras estables (~2 s). Una falla durante la calibración la rechaza y requiere repetirla; en operación normal la señal puede recuperarse automáticamente, exigiendo reposo antes del siguiente cierre. La apertura conserva la rampa del mecanismo; no es una desconexión de potencia.
 
 LO+/LO− dependen de la configuración física de detección del módulo. No garantizan detectar un cable de OUTPUT roto, la desconexión de la referencia RL o todos los casos de mal contacto; tampoco detectan un dedo bloqueado. F1 sigue requiriendo ensayos reales.
 
-## Verificación
+## Archivos de apoyo para hardware
 
-Compilación con CLI (o usa Verificar en Arduino IDE):
+Estos sketches independientes se conservan tal como estaban en el directorio del proyecto y ahora estan versionados. Sirven para revisar cada componente antes de integrarlo; cada uno reemplaza temporalmente al programa principal en la placa.
 
-```powershell
-arduino-cli compile --fqbn arduino:avr:uno --warnings all --build-path build/uno Inmoov_EMG
-```
-
-Pruebas de lógica con un compilador C++11; crea `build` si aún no existe:
-
-```powershell
-New-Item -ItemType Directory -Force build
-g++ -std=c++11 -Wall -Wextra -Werror tests/control_test.cpp -o build/control_test.exe
-.\build\control_test.exe
-```
-
-Se verificaron eliminación DC, simetría frente a semiondas positivas/negativas, independencia del offset, recorte a ambos rieles, pérdida de contacto y espera de recuperación de 2 s. Se probó también una cadena de señal alterna sintética → envolvente → calibración → cierre/apertura por pérdida de contacto. Continúan las pruebas de histéresis/rearme, pulsaciones, inversiones de movimiento, duración del recorrido ordenado, calibraciones inválidas, adquisición incompleta y desbordamiento de `millis()`.
-
-Compilación verificada con Arduino AVR 1.8.6 y Servo 1.2.2: 9784 bytes de Flash y 621 bytes de variables globales. Las pruebas C++11 pasaron sin advertencias del código del proyecto.
-
-| Requisito del proyecto | Preparación en firmware | Verificación pendiente en el montaje |
+| Apoyo | Para que se usa | Instrucciones |
 | --- | --- | --- |
-| R1: latencia <=50 ms | Sin `delay()`, envolvente de 32 muestras, primer paso inmediato | Con AD8232 hay latencia del filtro analógico y del procesamiento; OUTPUT ya no es una envolvente que se pueda comparar directamente con el umbral. Definir una referencia de inicio de contracción y repetir las mediciones; <=50 ms sigue sin demostrarse |
-| R2: cierre <=1 s | Rampa simultánea nominal de 800 ms | Video de 10 cierres con batería y carga indicadas |
-| R3: 0–150° | Extremos de pulso configurables por dedo | Calibración con goniómetro; no confundir ángulo mecánico con pulso |
-| R4/R5: tensor y autonomía | Sin medición de fuerza, corriente o batería en este circuito | Ensayo de tensor y autonomía según los requisitos del proyecto |
-| R6: detección >=90% | Calibración de envolvente, histéresis, LO+/LO− y eventos con tiempo | Control muscular experimental: 50 contracciones y 5 min de reposo; comprobar que ECG/artefactos no disparen cierres |
-| R7: PWM | Servo/Timer1; extremos iniciales 1–2 ms | Periodo y ancho en los cinco pines bajo carga |
-| R8: ADC 1 kHz | Timer2/ADC con salida de prueba D2 y contador de overruns | Medir intervalos de 1 ms entre flancos con servos activos |
-| R9: interfaz <=20 ms | Muestreo 5 ms, antirrebote 10 ms, LED inmediato | Medir entradas y LED, incluidos rebotes reales |
-| R10: estabilidad | Contador persistente de arranques | Medir buck y comparar contador antes/después de 100 ciclos |
+| `Prueba_Servo_Serial/Prueba_Servo_Serial.ino` | Enviar angulos 0..180 a un servo en D3, 9600 baudios; posicion inicial 90 grados | [Conexion y uso](Prueba_Servo_Serial/README.md) |
+| `Prueba_AD8232_Serial/Prueba_AD8232_Serial.ino` | Observar ADC crudo y LO+/LO- por Monitor Serie/Plotter, 115200 baudios; 500 Hz nominales | [Lecturas y escala](Prueba_AD8232_Serial/README.md) |
 
-La compilación y las pruebas de lógica no comprueban los criterios eléctricos, mecánicos ni de exactitud EMG. No se cargó el programa en una placa ni se accionaron motores en las verificaciones de software.
+Ambos compilan para UNO. Las confirmaciones del servo y las lecturas del ADC son herramientas de diagnostico; los resultados fisicos deben registrarse durante el ensayo. Las pruebas automatizadas de `tests/` verifican logica con datos sinteticos y cumplen otra funcion.
 
-## Modularizacion en curso
+## Configuración y verificación reproducibles
 
-El historial de `main` separa cada responsabilidad desde el codigo base. La evolucion de los modulos se documenta en [el registro de pasos](docs/modularizacion-paso-a-paso.md).
+Versiones verificadas: Arduino CLI 1.1.1, Arduino AVR Boards **1.8.6**, Servo **1.2.2**, EEPROM **2.0** incluida en AVR. Firmware Arduino C++11; pruebas nativas C++11 (MSVC usa C++14). Se conservan Arduino y Servo, por lo que no se presenta como C puro.
 
-### Apoyo: servomotor
+Preparación en un equipo nuevo con Arduino CLI en PATH, usando Bash:
 
-[Prueba_Servo_Serial](Prueba_Servo_Serial/README.md): programa independiente para enviar angulos por UART a un servo en D3 y revisar su respuesta.
+```bash
+bash scripts/bootstrap.sh
+```
 
-### Apoyo: ADC y AD8232
+En PowerShell, instalar las mismas dependencias y comprobar cada salida:
 
-[Prueba_AD8232_Serial](Prueba_AD8232_Serial/README.md): programa independiente para observar ADC crudo y LO+/LO- a 115200 baudios, sin filtros ni servos.
+```powershell
+arduino-cli core update-index
+if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar el índice" }
+arduino-cli core install arduino:avr@1.8.6
+if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar AVR" }
+arduino-cli lib install Servo@1.2.2
+if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Servo" }
+```
+
+Desde la raíz del repositorio:
+
+```powershell
+python scripts/test.py
+python scripts/build.py
+python scripts/build.py --no-debug --no-probe
+```
+
+`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3 y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Regenera `docs/resultados-pruebas.md`. En Bash también puede usarse `bash scripts/verify.sh`.
+
+Para cargar: Arduino IDE → abrir `Inmoov_EMG/Inmoov_EMG.ino` → Arduino Uno → puerto de la placa → Subir. O, después de compilar con CLI:
+
+```powershell
+arduino-cli upload --fqbn arduino:avr:uno --port COM3 --input-dir build/uno Inmoov_EMG
+if ($LASTEXITCODE -ne 0) { throw "No se pudo cargar el firmware" }
+```
+
+Sustituye COM3 por el puerto real. Si usaste un YAML personalizado, pásalo también a `upload`. Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. La calibración válida se recupera de EEPROM; sin ella, la mano permanece abierta mientras solicita la secuencia de calibración. La variante sin UART conserva el pulsador D8 al arrancar.
+
+Resultados y límites de validación están en [la tabla de pruebas](docs/resultados-pruebas.md) y [la matriz de requisitos](docs/requisitos.md). No se cargó firmware en una placa ni se accionaron motores durante esta modificación. El movimiento, PWM, consumo, exactitud muscular, autonomía y estabilidad eléctrica requieren ensayos físicos.
+
+## Historial de versiones
+
+El historial de `main` parte del codigo base `v0.1.0` y separa cada modulo, conexion de drivers, pruebas y documentacion en commits propios. El [registro paso a paso](docs/modularizacion-paso-a-paso.md) muestra la evolucion y [versiones](docs/versiones.md) relaciona las etiquetas.
+
+Etapas: `v0.5.0-modulos`, `v0.5.0-integracion`, `v0.5.0-pruebas` y `v0.5.0` final. Las etiquetas v0.2.0 a v0.4.1 permiten consultar las versiones preliminares.
+
+Los commits separan los cambios por responsabilidad. Los sketches de apoyo se incorporan como herramientas independientes. El firmware y las pruebas automatizadas conservan su funcionamiento; las mediciones fisicas se registran por separado.
