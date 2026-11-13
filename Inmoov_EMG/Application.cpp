@@ -3,6 +3,12 @@
 #include "Outputs.h"
 #include "Storage.h"
 
+namespace {
+// La ISR puede publicar despues de capturar 'now'. No confundir con antiguedad.
+bool sampleExpired(uint32_t now, uint32_t capturedMs) {
+  return int32_t(now-capturedMs) > int32_t(Config::SAMPLE_TIMEOUT_MS);
+}
+}
 void Hand::Application::begin(uint32_t now) {
   Diagnostics::begin();
   outputFault_ = !Outputs::begin();
@@ -82,7 +88,7 @@ void Hand::Application::signalLost(uint32_t now) {
   if (emgMode_ || calibrationPending_) requestHand(false, now);
 }
 void Hand::Application::consume(const RawSample &raw, uint32_t now) {
-  if (uint32_t(now - raw.capturedMs) > Config::SAMPLE_TIMEOUT_MS) {
+  if (sampleExpired(now, raw.capturedMs)) {
     dataLoss_ = true;
     signalLost(now);
     return;
@@ -179,7 +185,7 @@ void Hand::Application::tick(uint32_t now) {
     if (!Acquisition::take(raw)) break;
     consume(raw, now);
   }
-  if (!haveSample_ || uint32_t(now - lastSampleMs_) > Config::SAMPLE_TIMEOUT_MS) {
+  if (!haveSample_ || sampleExpired(now, lastSampleMs_)) {
     signalLost(now);
     sample_.faults |= Config::FAULT_STALE | Config::FAULT_NOT_READY;
   }

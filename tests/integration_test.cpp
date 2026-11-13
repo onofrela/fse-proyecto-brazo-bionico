@@ -15,6 +15,7 @@ bool lost, selected, pressed, servoOk, adcOk, saveOk, bootOk, preCalibrated;
 bool red, green, blue;
 uint16_t position, overruns;
 unsigned writes;
+bool publicationDuringTick;
 Diagnostics::Command next;
 Hand::Thresholds saved;
 std::vector<std::string> events;
@@ -23,7 +24,7 @@ void reset() {
   queue.clear(); lost = selected = pressed = red = green = blue = false;
   servoOk = adcOk = saveOk = bootOk = preCalibrated = true;
   position = overruns = 0; writes = 0; saved = {0, 0};
-  next = Diagnostics::Command::None; events.clear();
+  next = Diagnostics::Command::None; events.clear(); publicationDuringTick = false;
 }
 void push(uint32_t time, uint16_t raw = 338, bool leadsOff = false) {
   if (!queue.push({time, raw, leadsOff})) { lost = true; ++overruns; }
@@ -40,7 +41,11 @@ void feed(Hand::Application &app, uint32_t from, uint32_t count, int amplitude =
 bool event(const char *name) { return std::find(events.begin(), events.end(), name) != events.end(); }
 }
 bool Acquisition::begin() { return Fake::adcOk; }
-bool Acquisition::take(Hand::RawSample &sample) { return Fake::queue.pop(sample); }
+bool Acquisition::take(Hand::RawSample &sample) {
+  if (!Fake::queue.pop(sample)) return false;
+  if (Fake::publicationDuringTick) ++sample.capturedMs;
+  return true;
+}
 bool Acquisition::takeDataLoss() { const bool lost = Fake::lost; Fake::lost = false; return lost; }
 void Acquisition::discardPending() { Fake::queue.clear(); }
 uint16_t Acquisition::overruns() { return Fake::overruns; }
@@ -180,7 +185,19 @@ void testHardwareFailures() {
   Fake::feed(wrap, UINT32_MAX - 19, 2100);
   result("TIME-01", "millis cruza UINT32_MAX sin falsa falla", "salud conservada tras wrap", wrap.status().healthy);
 }
+void testPublicationClock() {
+  for(uint32_t origin : {uint32_t(0),uint32_t(UINT32_MAX-100)}) {
+    Fake::reset();Fake::selected=true;Fake::publicationDuringTick=true;
+    Hand::Application app;app.begin(origin);
+    Fake::feed(app,origin+1,2500);
+    assert(app.status().healthy && !(Fake::diagnostic.faults & Config::FAULT_DATA_LOSS));
+    Fake::publicationDuringTick=false;Fake::push(origin+2501);app.tick(origin+2512);
+    assert(!app.status().healthy);
+  }
+  result("TIME-ISR","muestra posterior a tick no parece antigua, tambien al wrap","sin falsa perdida; 11 ms antiguos siguen rechazados",true);
+}
 int main() {
+  testPublicationClock();
   testQueue(); testUiAndMotion(); testEndToEndAndRecovery(); testBufferedDecisionClock();
   testCalibration(false); testCalibration(true); testExplicitCalibration(); testHardwareFailures();
 }
