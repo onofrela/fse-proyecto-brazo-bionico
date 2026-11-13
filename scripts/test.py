@@ -93,8 +93,8 @@ def main():
         records.append(["PC-01", "protocolo, comandos, CSV antiguo y fallas 16/32", "10 pruebas Python sin fallos", "PASA"])
         run([sys.executable, "-B", "-c", "from pathlib import Path; from senal import read_csv; "
              "counts=sorted(len(read_csv(p)) for p in Path('docs/mediciones/2026-11-09').glob('*/senal.csv')); "
-             "assert counts==[469,709], counts"], env=python_environment)
-        records.append(["PC-DATOS", "leer CSV reales sin reinterpretar su filtro", "469 y 709 instantaneas conservadas", "PASA"])
+             "assert counts==[305,469,709], counts"], env=python_environment)
+        records.append(["PC-DATOS", "leer CSV reales sin reinterpretar su filtro", "305, 469 y 709 instantaneas conservadas", "PASA"])
     run([sys.executable, "-B", "scripts/verificar_mediciones.py"])
     records.append(["EVIDENCIA", "SHA256 original de mediciones y capturas", "12 archivos con integridad verificada", "PASA"])
     report = ROOT / args.report
