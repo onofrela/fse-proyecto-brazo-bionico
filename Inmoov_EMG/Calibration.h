@@ -53,17 +53,16 @@ class Calibration {
       return;
     }
     active70_ = percentile(70);
-    const uint16_t spread = 2 * (rest95_ - restMedian_);
+    const uint16_t spread = rest95_ - restMedian_;
     const uint16_t required = spread > Config::MIN_CALIBRATION_RANGE ? spread : Config::MIN_CALIBRATION_RANGE;
-    if (active70_ < rest95_ + required + Config::REST_NOISE_MARGIN) { fail(LOW_SEPARATION); return; }
+    if (active70_ < rest95_ + required) { fail(LOW_SEPARATION); return; }
     const uint16_t range = active70_ - rest95_;
     // Umbrales cerca del comienzo de actividad, no de sus picos mas altos.
     result_.open = rest95_ + range / 10;
-    if (result_.open < Config::OBSERVED_REST_CEILING) result_.open = Config::OBSERVED_REST_CEILING;
-    if (result_.open < rest95_ + Config::REST_NOISE_MARGIN) result_.open = rest95_ + Config::REST_NOISE_MARGIN;
+    if (result_.open == 0) result_.open = 1;
     result_.close = rest95_ + range / 4;
-    if (result_.close < Config::OBSERVED_ACTIVE_FLOOR) result_.close = Config::OBSERVED_ACTIVE_FLOOR;
-    if (result_.close < result_.open + 3) result_.close = result_.open + 3;
+    if (result_.close < result_.open + Config::MIN_THRESHOLD_GAP)
+      result_.close = result_.open + Config::MIN_THRESHOLD_GAP;
     if (!result_.valid() || result_.close >= active70_) { fail(LOW_SEPARATION); return; }
     stage_ = SUCCESS;
   }

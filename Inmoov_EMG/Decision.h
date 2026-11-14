@@ -16,7 +16,7 @@ struct Thresholds {
 class MuscleSwitch {
  public:
   void reset() {
-    armed_ = closed_ = initialized_ = lowTracking_ = false;
+    armed_ = closed_ = initialized_ = lowTracking_ = openingHold_ = false;
     activityQ8_ = 0;
   }
   uint16_t activity() const { return uint16_t(activityQ8_ / 256); }
@@ -39,12 +39,15 @@ class MuscleSwitch {
     if (!low) lowTracking_ = false;
     if (!closed_) {
       if (lowTracking_ && uint32_t(now-lowSince_) >= Config::REST_ARM_MS) armed_ = true;
-      if (armed_ && activity() >= Config::ACTIVITY_CLOSE_LEVEL) {
+      if (openingHold_ && uint32_t(now-openSince_) >= Config::MIN_OPEN_MS) openingHold_ = false;
+      if (armed_ && !openingHold_ && activity() >= Config::ACTIVITY_CLOSE_LEVEL) {
         closed_ = true; closedSince_ = now; lowTracking_ = false;
       }
     } else if (lowTracking_ && uint32_t(now-lowSince_) >= Config::RELAX_CONFIRM_MS &&
                uint32_t(now-closedSince_) >= Config::MIN_CLOSED_MS) {
       closed_ = false;
+      openingHold_ = true;
+      openSince_ = now;
     }
     return closed_;
   }
@@ -52,9 +55,9 @@ class MuscleSwitch {
  private:
   bool armed_ = false;
   bool closed_ = false;
-  bool initialized_ = false, lowTracking_ = false;
+  bool initialized_ = false, lowTracking_ = false, openingHold_ = false;
   int32_t activityQ8_ = 0;
-  uint32_t last_ = 0, lowSince_ = 0, closedSince_ = 0;
+  uint32_t last_ = 0, lowSince_ = 0, closedSince_ = 0, openSince_ = 0;
 };
 
 } // namespace Hand

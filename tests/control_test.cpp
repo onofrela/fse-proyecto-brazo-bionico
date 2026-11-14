@@ -18,7 +18,7 @@ void testSignalFaults() {
     assert(s.add(v,false)==0 && s.clipped() && !s.ready());
   for (unsigned i=0; i<2000; ++i) s.add(438,false);
   assert(s.ready() && s.add(438,false)<=1);
-  assert(Config::CALIBRATION_SIGNATURE == 0xE706);
+  assert(Config::CALIBRATION_SIGNATURE == 0xE707);
 }
 
 double response(double hz) {
@@ -63,18 +63,20 @@ void testDwellAndHysteresis() {
   assert(!hold(5,600));
   assert(!hold(9,1200)); // Reposo de una cifra no debe cerrar.
   assert(!hold(5,600));
-  assert(hold(14,100));
+  assert(hold(14,200));
   assert(m.activity()>=650);
   assert(hold(5,200)); // No invertir la rampa al primer descenso.
   assert(hold(5,600)); // Aun no se cumplen 900 ms desde la orden.
   assert(!hold(5,300)); // Reposo confirmado: apertura.
-  assert(hold(32,150));
+  assert(!hold(5,900));
+  assert(hold(32,200));
   now+=100;
   assert(!m.update(32,t,now)); // Hueco de control: apertura/rearme.
   assert(m.activity()==0);
   assert(!hold(32,200));
   assert(!hold(5,600));
-  assert(hold(32,150));
+  assert(!hold(5,900));
+  assert(hold(32,200));
   assert(!m.update(32,Thresholds{0,0},++now));
   MuscleSwitch wrap;
   for(uint32_t i=0; i<200; ++i) assert(!wrap.update(5,t,0xFFFFFF80UL+i));
@@ -123,7 +125,7 @@ void testRobustCalibration() {
   runCalibration(c);
   assert(c.stage()==Calibration::SUCCESS);
   assert(c.rest95()==5 && c.active70()==31);
-  assert(c.thresholds().open==8 && c.thresholds().close==12);
+  assert(c.thresholds().open==7 && c.thresholds().close==11);
   runCalibration(c,1);
   assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::LOW_SEPARATION);
   runCalibration(c,2);
@@ -171,14 +173,52 @@ void testSignalCalibrationControl() {
   }
   assert(c.stage()==Calibration::SUCCESS);
   for(uint32_t ms=23001; ms<23150; ++ms) muscle.update(0,c.thresholds(),ms);
-  for(uint32_t ms=23150; ms<23300; ++ms) hand.request(muscle.update(50,c.thresholds(),ms),ms);
+  for(uint32_t ms=23150; ms<23400; ++ms) hand.request(muscle.update(50,c.thresholds(),ms),ms);
   assert(hand.closed());
   signal.add(338,true);
-  if(!signal.ready()) { muscle.reset(); hand.request(false,23301); }
-  assert(!hand.closed() && !muscle.update(50,c.thresholds(),23302));
+  if(!signal.ready()) { muscle.reset(); hand.request(false,23401); }
+  assert(!hand.closed() && !muscle.update(50,c.thresholds(),23402));
+}
+
+void testLowAmplitudeAndFullCycles() {
+  Calibration cal; cal.start(0);
+  for (uint32_t ms=1; ms<=22000; ++ms) {
+    // Reposo P95=3, actividad P70=7 por los bins de dos cuentas.
+    const uint16_t value = cal.stage()==Calibration::ACTIVE ?
+        uint16_t((ms/100)%3==0 ? 4 : (ms/100)%3==1 ? 6 : 8) :
+        uint16_t((ms/100)%10==0 ? 3 : 0);
+    cal.update(ms,value,true);
+  }
+  assert(cal.stage()==Calibration::SUCCESS);
+  assert(cal.rest95()==3 && cal.thresholds().open==3 && cal.thresholds().close==5);
+  MuscleSwitch detector; Motion hand; uint32_t now=0;
+  auto feed=[&](uint16_t value, uint16_t duration) {
+    for (uint16_t i=0; i<duration; ++i) {
+      ++now; hand.request(detector.update(value,cal.thresholds(),now),now); hand.update(now);
+    }
+  };
+  feed(0,700); feed(17,100); feed(0,700);
+  assert(hand.isOpen()); // Pico aislado de 100 ms no cierra.
+  feed(6,1000);
+  assert(hand.position()==1000);
+  feed(0,550); // Ya ordeno abrir; todavia no termino de abrir.
+  assert(!hand.closed() && hand.position()>0);
+  feed(17,800);
+  assert(hand.isOpen()); // Actividad nueva no invierte la apertura a medio camino.
+  feed(17,1100);
+  assert(hand.position()==1000);
+  feed(0,2000); assert(hand.isOpen());
+  for (uint8_t n=0; n<Config::SERVO_COUNT; ++n) {
+    assert(Config::OPEN_US[n]==1000);
+    assert(Config::CLOSED_US[n]==2000);
+    assert(pulse(0,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::OPEN_US[n]);
+    assert(pulse(1000,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::CLOSED_US[n]);
+  }
+  std::cout << "Amplitud baja: umbrales 3/5, pico rechazado, apertura y cierre completos con extremos originales\n";
 }
 
 int main() {
+  testLowAmplitudeAndFullCycles();
   testSignalFaults(); testFrequencyResponse(); testDwellAndHysteresis();
   testRobustCalibration(); testWholeHandMotion(); testSignalCalibrationControl(); testBurstyEnvelopeFullStroke();
   std::cout<<"OK: filtro Q12/Q6, fallas, calibracion robusta, histeresis y movimiento simultaneo de mano completa\n";
