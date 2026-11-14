@@ -91,10 +91,11 @@ static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente
 static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&
               SENSOR_MAX_ADC <= ADC_FULL_SCALE, "Rango ADC invalido");
 
-// Calibrar con los tensores sueltos. 1000/2000 us son pulsos, NO grados.
-// Se permite invertir individualmente open/closed si un servo gira al reves.
-constexpr uint16_t OPEN_US[SERVO_COUNT] = {1000, 1000, 1000, 1000, 1000};
-constexpr uint16_t CLOSED_US[SERVO_COUNT] = {2000, 2000, 2000, 2000, 2000};
+// Extremos equivalentes a Servo.write(0) y Servo.write(180) con attach por defecto.
+// Son extremos ordenados, no mediciones de angulo fisico. Ajustar con tensores sueltos.
+// Orden: pulgar, indice, medio, anular, menique. Los tres ultimos giran invertidos.
+constexpr uint16_t OPEN_US[SERVO_COUNT] = {544, 544, 2400, 2400, 2400};
+constexpr uint16_t CLOSED_US[SERVO_COUNT] = {2400, 2400, 544, 544, 544};
 static_assert(FILTER_WINDOW_SAMPLES > 0 && FILTER_WINDOW_SAMPLES <= 64,
               "Ventana estatica fuera del presupuesto previsto");
 static_assert(MOTION_STEP > 0 && MOTION_STEP <= POSITION_FULL_SCALE, "Paso invalido");

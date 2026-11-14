@@ -209,12 +209,12 @@ void testLowAmplitudeAndFullCycles() {
   assert(hand.position()==1000);
   feed(0,2000); assert(hand.isOpen());
   for (uint8_t n=0; n<Config::SERVO_COUNT; ++n) {
-    assert(Config::OPEN_US[n]==1000);
-    assert(Config::CLOSED_US[n]==2000);
+    assert(Config::OPEN_US[n]==(n < 2 ? 544 : 2400));
+    assert(Config::CLOSED_US[n]==(n < 2 ? 2400 : 544));
     assert(pulse(0,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::OPEN_US[n]);
     assert(pulse(1000,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::CLOSED_US[n]);
   }
-  std::cout << "Amplitud baja: umbrales 3/5, pico rechazado, apertura y cierre completos con extremos originales\n";
+  std::cout << "Amplitud baja: umbrales 3/5, pico rechazado, apertura y cierre completos con direccion por dedo\n";
 }
 
 int main() {

@@ -12,10 +12,28 @@ int main() {
   result("DRV-F1", "fallo del tercer attach deshace los anteriores", "cero servos conectados", !Outputs::begin() && attachedServos == 0);
   failServoPin = -1;
   assert(Outputs::begin() && attachedServos == Config::SERVO_COUNT);
+  for (uint8_t n = 0; n < Config::SERVO_COUNT; ++n)
+    assert(servoPulses[Config::SERVO_PINS[n]] == (n < 2 ? 544 : 2400));
   assert(!Outputs::setPosition(Config::POSITION_FULL_SCALE + 1));
   assert(Outputs::setPosition(Config::POSITION_FULL_SCALE));
-  for (uint8_t n = 0; n < Config::SERVO_COUNT; ++n) assert(servoPulses[Config::SERVO_PINS[n]] == Config::CLOSED_US[n]);
-  result("DRV-01", "5 salidas con pulso de cierre y limites verificados", "5 pulsos de 2000 us ordenados", true);
+  for (uint8_t n = 0; n < Config::SERVO_COUNT; ++n)
+    assert(servoPulses[Config::SERVO_PINS[n]] == (n < 2 ? 2400 : 544));
+  result("DRV-01", "cierre con medio, anular y menique invertidos", "2400 us en pulgar/indice; 544 us en medio/anular/menique", true);
+  assert(Outputs::setPosition(500));
+  for(uint8_t n=0;n<Config::SERVO_COUNT;++n) assert(servoPulses[Config::SERVO_PINS[n]]==1472);
+  assert(Outputs::setPosition(0));
+  for(uint8_t n=0;n<Config::SERVO_COUNT;++n)
+    assert(servoPulses[Config::SERVO_PINS[n]]==(n < 2 ? 544 : 2400));
+  result("DRV-MID","90 grados conservados y retorno a apertura por dedo","1472 us en cinco salidas; apertura 544/544/2400/2400/2400 us",true);
+  for (uint16_t position=25; position<=Config::POSITION_FULL_SCALE; position+=25) {
+    uint16_t previous[Config::SERVO_COUNT];
+    for (uint8_t n=0; n<Config::SERVO_COUNT; ++n) previous[n]=servoPulses[Config::SERVO_PINS[n]];
+    assert(Outputs::setPosition(position));
+    for (uint8_t n=0; n<Config::SERVO_COUNT; ++n)
+      assert(n < 2 ? servoPulses[Config::SERVO_PINS[n]] > previous[n] :
+                     servoPulses[Config::SERVO_PINS[n]] < previous[n]);
+  }
+  result("DRV-REVERSE","rampa con sentidos opuestos entre los dos grupos","D3/D5 suben; D6/D10/D11 bajan en los 40 pasos",true);
   Diagnostics::begin(); assert(Serial.baud == Config::SERIAL_BAUD);
   Serial.capacity = 0; const auto before = Diagnostics::dropped();
   Diagnostics::event("TEST", 1, 2);
