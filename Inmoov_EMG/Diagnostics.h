@@ -11,10 +11,10 @@ struct Sample {
   uint8_t faults = Config::FAULT_NOT_READY;
 };
 struct ControlStatus {
-  bool calibrated;
-  uint16_t rest95, active70, activity;
+  bool paused;
+  uint16_t meanX10, targetAngle;
 };
-enum class Command : uint8_t { None, Calibrate, TogglePlot, Open, Status };
+enum class Command : uint8_t { None, Resume, TogglePlot, Open, Status };
 void begin();
 Command command();
 void event(const char *name, uint32_t now, uint32_t value);

@@ -10,7 +10,10 @@ namespace Hand {
 class Motion {
  public:
   bool request(bool closed, uint32_t now) {
-    const uint16_t target = closed ? Config::POSITION_FULL_SCALE : 0;
+    return requestPosition(closed ? Config::POSITION_FULL_SCALE : 0, now);
+  }
+  bool requestPosition(uint16_t target, uint32_t now) {
+    if (target > Config::POSITION_FULL_SCALE) return false;
     if (target == target_) return false;
     target_ = target;
     last_ = now;
@@ -21,6 +24,7 @@ class Motion {
     last_ = now;
     return step();
   }
+  uint16_t target() const { return target_; }
   bool closed() const { return target_ == Config::POSITION_FULL_SCALE; }
   uint16_t position() const { return position_; }
   bool isOpen() const { return position_ == 0 && target_ == 0; }

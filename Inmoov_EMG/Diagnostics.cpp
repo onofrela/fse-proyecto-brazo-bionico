@@ -6,6 +6,9 @@ uint32_t droppedLines = 0;
 bool plotEnabled = false;
 uint8_t pendingStatus = 0;
 #if EMG_SERIAL_DEBUG
+uint8_t auxiliary = 0;
+#endif
+#if EMG_SERIAL_DEBUG
 uint32_t lastPlotMs = 0;
 uint32_t lastActivityMs = 0;
 void send(const char *line, int length, size_t capacity) {
@@ -28,7 +31,7 @@ Diagnostics::Command Diagnostics::command() {
     const int byte = Serial.read(); // int conserva -1 (lectura sin dato).
     if (byte < 0) { ++droppedLines; return Command::None; }
     switch (byte) {
-      case 'c': case 'C': return Command::Calibrate;
+      case 'c': case 'C': return Command::Resume;
       case 'p': case 'P': return Command::TogglePlot;
       case 'x': case 'X': return Command::Open;
       case '?': return Command::Status;
@@ -78,14 +81,28 @@ void Diagnostics::update(uint32_t now, const ControlStatus &status) {
       case 1: event("FW",now,Config::FIRMWARE_VERSION); break;
       case 2: event("HP_HZ",now,Config::FILTER_HIGH_PASS_HZ); break;
       case 3: event("NOTCH_HZ",now,Config::FILTER_NOTCH_HZ); break;
-      case 4: event("CAL_VALID",now,status.calibrated); break;
+      case 4: event("FIXED_CONTROL",now,1); break;
       case 5: event("HAND_ONLY",now,1); break;
-      case 6: event("REST_P95",now,status.rest95); break;
-      case 7: event("ACTIVE_P70",now,status.active70); pendingStatus=0; break;
+      case 6: event("AVERAGE_SAMPLES",now,Config::LEVEL_AVERAGE_SAMPLES); break;
+      case 7: event("LEVEL_MID",now,Config::LEVEL_MID_START); break;
+      case 8: event("LEVEL_HIGH",now,Config::LEVEL_HIGH_START); break;
+      case 9: event("CONTROL_PAUSED",now,status.paused); break;
+      case 10: event("TARGET_STATUS",now,status.targetAngle); break;
+      case 11: {
+        uint8_t reversed = 0;
+        for (uint8_t n=0; n<Config::SERVO_COUNT; ++n)
+          if (Config::OPEN_US[n] > Config::CLOSED_US[n]) reversed |= uint8_t(1U << n);
+        event("SERVO_REVERSE_MASK",now,reversed);
+        pendingStatus=0; break;
+      }
       default: pendingStatus=0; break;
     }
   } else if (plotEnabled && uint32_t(now-lastActivityMs)>=200) {
-    lastActivityMs=now; event("ACTIVITY",now,status.activity);
+    lastActivityMs=now;
+    if (auxiliary==0) event("MEAN_X10",now,status.meanX10);
+    else if (auxiliary==1) event("TARGET_STATUS",now,status.targetAngle);
+    else event("CONTROL_PAUSED",now,status.paused);
+    auxiliary=(auxiliary+1)%3;
   }
 #else
   (void)now; (void)status;

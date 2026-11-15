@@ -12,6 +12,7 @@ BUILD = ROOT / "build" / "native"
 SUITES = {
     "control": ["tests/control_test.cpp"],
     "recording": ["tests/recording_test.cpp"],
+    "levels": ["tests/levels_test.cpp"],
     "filter": ["tests/filter_test.cpp"],
     "integration": ["tests/integration_test.cpp", "Inmoov_EMG/Application.cpp"],
     "storage": ["tests/storage_test.cpp"],

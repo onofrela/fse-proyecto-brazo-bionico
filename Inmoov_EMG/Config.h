@@ -32,7 +32,13 @@ constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint16_t SAMPLE_HZ = 1000;
-constexpr uint8_t FIRMWARE_VERSION = 6;
+constexpr uint8_t FIRMWARE_VERSION = 8;
+// Promedio por bloques de envolvente: 200 muestras a 1 kHz (~200 ms).
+constexpr uint16_t LEVEL_AVERAGE_SAMPLES = 200;
+constexpr uint16_t LEVEL_MID_START = 5;
+constexpr uint16_t LEVEL_HIGH_START = 10;
+static_assert(LEVEL_AVERAGE_SAMPLES > 0 && LEVEL_AVERAGE_SAMPLES <= 1000, "Bloque invalido");
+static_assert(LEVEL_MID_START < LEVEL_HIGH_START, "Bandas invalidas");
 constexpr uint16_t FILTER_HIGH_PASS_HZ = 30;
 constexpr uint16_t FILTER_NOTCH_HZ = 60;
 constexpr uint16_t FILTER_LOW_PASS_HZ = 200;
