@@ -68,13 +68,15 @@ def run_gui(args):
             self.closing = False
             self.dirty = True
             self.commands = queue.Queue()
+            self.mean_x10 = 0
+            self.target_angle = 0
             self.firmware_version = 0
             self.capture_started = None
             self.calibrating = False
-            self.prompt = "Conecta para consultar firmware y calibración."
+            self.prompt = "Conecta para consultar el modo de control."
             self.prompt_until = None
             self.calibration_status = tk.StringVar(value=self.prompt)
-            self.activity_status = tk.StringVar(value="Actividad ponderada: — · Contracción: cerrar · Relajación: abrir")
+            self.activity_status = tk.StringVar(value="Promedio: — · Objetivo: —")
             self.label = tk.StringVar(value="REST")
             self.mode = tk.StringVar(value="Sensor USB")
             self.port = tk.StringVar(value=args.port or "")
@@ -162,15 +164,15 @@ def run_gui(args):
 
         def update_controls(self):
             recording = self.thread is not None and self.mode.get() == "Sensor USB"
-            capable = recording and self.firmware_version == 6
-            self.cal_button.configure(state="normal" if capable and not self.calibrating else "disabled")
-            self.cancel_button.configure(state="normal" if capable else "disabled")
+            capable = recording and self.firmware_version in (6, 7, 8)
+            self.cal_button.configure(text="Activar control" if self.firmware_version == 8 else "Calibrar (22 s)", state="normal" if capable and not self.calibrating else "disabled")
+            self.cancel_button.configure(text="Pausar / abrir" if self.firmware_version == 8 else "Cancelar / abrir", state="normal" if capable else "disabled")
             self.mark_button.configure(state="normal" if recording else "disabled")
 
         def send(self, command):
             if self.thread and self.mode.get() == "Sensor USB":
                 self.commands.put(command)
-                if command == "c":
+                if command == "c" and self.firmware_version != 8:
                     self.calibrating = True
                     self.prompt = "Calibración solicitada. Espera las instrucciones; la mano permanecerá abierta."
                     self.prompt_until = None
@@ -190,9 +192,21 @@ def run_gui(args):
                 self.prompt_until = None
             elif name == "FW":
                 self.firmware_version = value
-                if value != 6:
-                    self.prompt = "Carga el firmware con ponderación (v6) para habilitar la calibración."
+                if value == 8:
+                    self.calibrating = False
+                    self.prompt = "Modo fijo: promedio de 200 muestras (~200 ms). <5: 0° · 5 a <10: 90° · ≥10: 180°. Sin calibración."
                     self.prompt_until = None
+                elif value not in (6, 7):
+                    self.prompt = "Carga el firmware con ponderación (v7) para habilitar la calibración."
+                    self.prompt_until = None
+            elif name in ("MEAN_X10", "TARGET_DEG", "TARGET_STATUS"):
+                if name == "MEAN_X10": self.mean_x10 = value
+                else: self.target_angle = value
+                self.activity_status.set(f"Promedio: {self.mean_x10 / 10:.1f} · Objetivo: {self.target_angle}°")
+            elif name == "CONTROL_PAUSED" and self.firmware_version == 8:
+                self.calibrating = False
+                self.prompt = "Control pausado y apertura solicitada. Pulsa Activar control para continuar." if value else "Control activo por promedios. <5: 0° · 5 a <10: 90° · ≥10: 180°. Sin calibración."
+                self.prompt_until = None
             elif name == "ACTIVITY":
                 self.activity_status.set(f"Actividad ponderada: {value / 10:.1f}% · Contracción: cerrar · Relajación: abrir")
             elif name in instructions:
@@ -210,7 +224,7 @@ def run_gui(args):
                 self.calibrating = False
                 self.prompt = "Calibración aceptada. Relaja para rearmar el control." if name == "TH_CLOSE" else "Calibración cancelada / apertura solicitada."
                 self.prompt_until = None
-            elif name == "CAL_VALID" and self.firmware_version == 6 and not self.calibrating and "RECHAZADA" not in self.prompt:
+            elif name == "CAL_VALID" and self.firmware_version in (6, 7) and not self.calibrating and "RECHAZADA" not in self.prompt:
                 self.prompt = "Calibración disponible. Relaja para rearmar." if value else "SIN CALIBRAR: pulsa Calibrar cuando estés preparado."
                 self.prompt_until = None
             self.update_controls()
@@ -232,7 +246,7 @@ def run_gui(args):
             self.commands = queue.Queue()
             self.firmware_version = 0
             self.capture_started = time.monotonic()
-            self.activity_status.set("Actividad ponderada: — · Contracción: cerrar · Relajación: abrir")
+            self.activity_status.set("Promedio: — · Objetivo: —")
             self.calibrating = False
             self.prompt = "Consultando versión del firmware…" if not demo else "Demo sintética: los controles de actuadores están deshabilitados."
             self.prompt_until = None
@@ -338,7 +352,7 @@ def run_gui(args):
             if (self.thread and self.mode.get() == "Sensor USB" and not self.firmware_version
                     and self.capture_started and time.monotonic()-self.capture_started>6
                     and self.prompt in ("Consultando versión del firmware…", "Placa reiniciada. Consultando firmware y calibración…")):
-                self.prompt = "Carga el firmware con ponderación (v6) para habilitar la calibración guiada."
+                self.prompt = "Carga el firmware con ponderación (v7) para habilitar la calibración guiada."
             remaining = max(0, int(self.prompt_until - time.monotonic()) + 1) if self.prompt_until else None
             self.calibration_status.set(self.prompt + (f" ({remaining} s)" if remaining is not None else ""))
             if self.dirty:

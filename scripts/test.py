@@ -92,7 +92,7 @@ def main():
                       "Inmoov_EMG/analizador_senal/tests", "-v"], env=python_environment)
         print(output, end="")
         (BUILD / "python.txt").write_text(output, encoding="utf-8")
-        records.append(["PC-01", "protocolo, comandos, CSV antiguo y fallas 16/32", "10 pruebas Python sin fallos", "PASA"])
+        records.append(["PC-01", "protocolo, comandos, CSV antiguo y fallas 16/32", "11 pruebas Python sin fallos", "PASA"])
         run([sys.executable, "-B", "-c", "from pathlib import Path; from senal import read_csv; "
              "counts=sorted(len(read_csv(p)) for p in Path('docs/mediciones/2026-11-09').glob('*/senal.csv')); "
              "assert counts==[305,469,709], counts"], env=python_environment)

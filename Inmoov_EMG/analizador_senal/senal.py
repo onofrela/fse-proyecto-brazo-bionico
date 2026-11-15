@@ -141,7 +141,7 @@ class Recorder:
             stream.close()
         report = summarize(self.samples)
         report.update(source=self.source, invalid_lines=self.invalid,
-                      events=len(self.events), close_commands=sum(e["name"] == "CLOSE" for e in self.events))
+                      events=len(self.events), close_commands=sum(e["name"] == "CLOSE" or (e["name"] == "TARGET_DEG" and e["value"] == 180) for e in self.events))
         (self.directory / "resumen.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         return report
 
@@ -303,8 +303,8 @@ def draw_plot(figure, axes, samples, title="Señal AD8232", window=None):
     axes[0].set_ylabel("ADC", fontsize=9)
     for field, label, color, style in (
         ("envelope_adc", "Envolvente (Arduino)", "#059669", "-"),
-        ("threshold_open_adc", "Umbral abrir", "#f59e0b", "--"),
-        ("threshold_close_adc", "Umbral cerrar", "#dc2626", "--")):
+        ("threshold_open_adc", "Umbral inferior", "#f59e0b", "--"),
+        ("threshold_close_adc", "Umbral superior", "#dc2626", "--")):
         axes[1].plot(t, [getattr(s, field) for s in plotted], label=label, color=color, linestyle=style)
     axes[1].set_ylabel("Actividad", fontsize=9)
     colors = ("#dc2626", "#ea580c", "#9333ea", "#475569", "#be185d", "#0f766e")

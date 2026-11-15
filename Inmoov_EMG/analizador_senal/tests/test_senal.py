@@ -17,6 +17,14 @@ class ProtocolTests(unittest.TestCase):
                     "D,1,1,1,1,1,1,0,0,0,9", "D,NaN,1,1,1,1,1,0,0,0", "BOOT", "E,-1,BOOT,1"):
             self.assertIsNone(parse_line(bad), bad)
 
+    def test_fixed_control_events_and_close_count(self):
+        with tempfile.TemporaryDirectory() as temp:
+            recorder = Recorder(Path(temp) / "r")
+            for line in ("E,10,FW,8", "E,11,MEAN_X10,67", "E,12,TARGET_DEG,90", "E,13,TARGET_DEG,180"):
+                self.assertIsNotNone(recorder.accept(line))
+            report = recorder.close()
+            self.assertEqual(report["close_commands"], 1)
+
     def test_modular_fault_bits_and_legacy_csv(self):
         parsed=parse_line("D,100,338,338,5,8,12,48,0,0")
         self.assertEqual(parsed[1][6],48)
