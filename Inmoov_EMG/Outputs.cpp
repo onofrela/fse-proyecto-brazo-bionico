@@ -1,3 +1,5 @@
+#ifndef ARDUINO // INMOOV_NATIVE_MODULE
+// Arduino IDE usa las definiciones integradas en Inmoov_EMG.ino.
 #include <Arduino.h>
 #include <Servo.h>
 #include "Outputs.h"
@@ -56,3 +58,4 @@ void Outputs::led(bool red, bool green, bool blue) {
 }
 bool Outputs::emgSelected() { return digitalRead(Config::MODE_PIN) == HIGH; }
 bool Outputs::buttonPressed() { return digitalRead(Config::BUTTON_PIN) == LOW; }
+#endif // INMOOV_NATIVE_MODULE

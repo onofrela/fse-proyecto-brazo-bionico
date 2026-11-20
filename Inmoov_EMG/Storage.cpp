@@ -1,3 +1,5 @@
+#ifndef ARDUINO // INMOOV_NATIVE_MODULE
+// Arduino IDE usa las definiciones integradas en Inmoov_EMG.ino.
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <avr/eeprom.h>
@@ -33,3 +35,4 @@ Storage::Settings Storage::load() {
 }
 bool Storage::save(const Hand::Thresholds &thresholds) { return calibrationStore.start(thresholds); }
 Hand::SaveResult Storage::poll() { return calibrationStore.poll(); }
+#endif // INMOOV_NATIVE_MODULE

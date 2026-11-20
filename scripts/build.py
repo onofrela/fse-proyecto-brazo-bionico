@@ -66,6 +66,7 @@ def main():
     if properties.get("name") != "Servo" or properties.get("version") != SERVO:
         raise RuntimeError(f"La biblioteca seleccionada no es Servo@{SERVO}: {servo}")
     variant = "uno" + ("-sin-uart" if args.no_debug else "") + ("-sin-sonda" if args.no_probe else "")
+    run([sys.executable, str(ROOT / "scripts/export_ino.py")])
     command = base + ["compile", "--fqbn", "arduino:avr:uno", "--warnings", "all", "--library", str(servo.resolve()),
                       "--build-path", str(build / variant)]
     flags = []

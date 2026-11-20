@@ -1,3 +1,5 @@
+#ifndef ARDUINO // INMOOV_NATIVE_MODULE
+// Arduino IDE usa las definiciones integradas en Inmoov_EMG.ino.
 #include <Arduino.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
@@ -100,3 +102,4 @@ uint16_t Acquisition::overruns() {
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { count = lostSamples; }
   return count;
 }
+#endif // INMOOV_NATIVE_MODULE

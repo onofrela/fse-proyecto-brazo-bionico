@@ -1,3 +1,5 @@
+#ifndef ARDUINO // INMOOV_NATIVE_MODULE
+// Arduino IDE usa las definiciones integradas en Inmoov_EMG.ino.
 #include "Application.h"
 #include "Acquisition.h"
 #include "Outputs.h"
@@ -124,3 +126,4 @@ void Hand::Application::tick(uint32_t now) {
   Diagnostics::update(now,{paused_,levels_.meanX10(),
       uint16_t(uint32_t(motion_.target())*180/Config::POSITION_FULL_SCALE)});
 }
+#endif // INMOOV_NATIVE_MODULE

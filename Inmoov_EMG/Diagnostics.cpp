@@ -1,3 +1,5 @@
+#ifndef ARDUINO // INMOOV_NATIVE_MODULE
+// Arduino IDE usa las definiciones integradas en Inmoov_EMG.ino.
 #include <Arduino.h>
 #include <stdio.h>
 #include "Diagnostics.h"
@@ -108,3 +110,4 @@ void Diagnostics::update(uint32_t now, const ControlStatus &status) {
   (void)now; (void)status;
 #endif
 }
+#endif // INMOOV_NATIVE_MODULE
