@@ -4,6 +4,7 @@ from pathlib import Path
 import argparse
 import csv
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -64,6 +65,16 @@ def main():
     parser.add_argument("--report", default="docs/resultados-pruebas.md")
     parser.add_argument("--native-only", action="store_true", help="Omitir pruebas del analizador Python")
     args = parser.parse_args()
+    # Avisar antes de compilar: estas dependencias solo se usan en la suite Python.
+    if not args.native_only:
+        missing = [package for module, package in (("serial", "pyserial"),
+                                                  ("cryptography", "cryptography"))
+                   if importlib.util.find_spec(module) is None]
+        if missing:
+            raise RuntimeError(
+                "Faltan dependencias de Python: " + ", ".join(missing) + ".\n"
+                "Ejecuta con el mismo Python: python -m pip install -r "
+                "Inmoov_EMG/analizador_senal/requirements.txt")
     BUILD.mkdir(parents=True, exist_ok=True)
     compiler, environment = compiler_environment()
     records = []
