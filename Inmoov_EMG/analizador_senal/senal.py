@@ -16,10 +16,12 @@ FIELDS = ["host_utc", "session", "device_ms", "time_s", "raw_adc", "baseline_adc
           "envelope_adc", "threshold_open_adc", "threshold_close_adc", "flags",
           "adc_overruns", "dropped_logs", "adc_reference_v", "raw_v", "baseline_v",
           "envelope_v", "leads_off", "clipped", "not_ready", "stale"]
-LEGACY_FIELDS = tuple(FIELDS)
+REQUIRED_FIELDS = tuple(FIELDS)
 FIELDS += ["data_loss", "hardware_fault"]
 EVENT_FIELDS = ["host_utc", "session", "device_ms", "time_s", "name", "value"]
 FLAG_NAMES = {1: "Electrodos sin contacto", 2: "Recorte", 4: "Estabilizando", 8: "ADC sin muestras recientes", 16: "Datos perdidos", 32: "Falla de hardware"}
+LEVEL_MID_START = 5
+LEVEL_HIGH_START = 10
 
 
 def status_text(flags: int) -> str:
@@ -141,7 +143,7 @@ class Recorder:
             stream.close()
         report = summarize(self.samples)
         report.update(source=self.source, invalid_lines=self.invalid,
-                      events=len(self.events), close_commands=sum(e["name"] == "CLOSE" or (e["name"] == "TARGET_DEG" and e["value"] == 180) for e in self.events))
+                      events=len(self.events), close_commands=sum(e["name"] == "TARGET_DEG" and e["value"] == 180 for e in self.events))
         (self.directory / "resumen.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
         return report
 
@@ -150,7 +152,7 @@ def read_csv(path):
     samples = []
     with Path(path).open(encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)
-        if not set(LEGACY_FIELDS).issubset(reader.fieldnames or []):
+        if not set(REQUIRED_FIELDS).issubset(reader.fieldnames or []):
             raise ValueError("El CSV debe ser senal.csv generado por este analizador.")
         for number, row in enumerate(reader, 2):
             try:
@@ -192,21 +194,22 @@ def summarize(samples):
             "envelope_max_adc_valid": max((s.envelope_adc for s in valid), default=None),
             "flag_counts": {name: sum(bool(s.flags & bit) for s in samples) for bit, name in FLAG_NAMES.items()},
             **counters,
-            "note": "Estadísticas de telemetría a ~10 Hz, no de las 1000 muestras/s internas. RMS de valores recibidos; no es RMS EMG de banda completa. Los voltajes corresponden a OUTPUT, no al músculo. CLOSE es una orden, no movimiento medido."}
+            "note": "Estadísticas de telemetría a ~10 Hz, no de las 1000 muestras/s internas. RMS de valores recibidos; no es RMS EMG de banda completa. Los voltajes corresponden a OUTPUT, no al músculo. TARGET_DEG es una orden, no movimiento medido."}
 
 
 def demo_lines(seconds=20):
-    """Señales sintéticas a 10 Hz: reposo, actividad, pérdida de contacto y recorte."""
+    """Telemetría sintética FW8 a 10 Hz; no simula el filtro ni el bloque interno."""
     yield "E,0,BOOT,1"
+    yield "E,0,FW,8"
     yield "E,0,MODE,0"
-    previous_active = False
+    previous_target = 0
     for i in range(max(1, int(seconds * 10))):
         t = i / 10
-        active = 3 <= t % 10 < 6
+        level = 2 if 4.5 <= t % 10 < 6 else 1 if 3 <= t % 10 < 4.5 else 0
         baseline = 338 + int(3 * math.sin(t * 0.4))
-        amplitude = 65 if active else 6
+        amplitude = (6, 30, 65)[level]
         raw = baseline + int(amplitude * math.sin(i * 1.37))
-        envelope = (38 if active else 4) + int(2 * math.sin(i * 0.8))
+        envelope = (2, 7, 12)[level] + int(2 * math.sin(i * 0.8))
         flags = 4 if t < 2 else 0
         if 12 <= t < 13:
             flags, raw, envelope = 1, 338, 0
@@ -216,10 +219,19 @@ def demo_lines(seconds=20):
             flags, raw, envelope = 2, 675, 0
         elif 17.5 <= t < 19.5:
             flags, envelope = 4, 0
-        if active != previous_active:
-            yield f"E,{i * 100},{'CLOSE' if active else 'OPEN'},25"
-            previous_active = active
-        yield f"D,{i * 100},{raw},{baseline},{envelope},12,24,{flags},0,0"
+        if flags:
+            target = 0
+        elif envelope >= LEVEL_HIGH_START:
+            target = 180
+        elif envelope >= LEVEL_MID_START:
+            target = 90
+        else:
+            target = 0
+        if target != previous_target:
+            yield f"E,{i * 100},TARGET_DEG,{target}"
+            previous_target = target
+        yield f"E,{i * 100},MEAN_X10,{envelope * 10 if not flags else 0}"
+        yield f"D,{i * 100},{raw},{baseline},{envelope},{LEVEL_MID_START},{LEVEL_HIGH_START},{flags},0,0"
 
 
 def serial_lines(port, stop, baud=115200, commands=None):

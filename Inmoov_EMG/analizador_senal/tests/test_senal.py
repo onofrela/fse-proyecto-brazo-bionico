@@ -6,12 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from senal import DeviceClock, Recorder, demo_lines, parse_line, read_csv, serial_lines, summarize
+from senal import FIELDS, DeviceClock, Recorder, demo_lines, parse_line, read_csv, serial_lines, summarize
 
 
 class ProtocolTests(unittest.TestCase):
     def test_actual_firmware_and_combined_flags(self):
-        kind, values = parse_line("D,12345,338,337,19,12,24,3,2,4\r\n")
+        kind, values = parse_line("D,12345,338,337,19,5,10,3,2,4\r\n")
         self.assertEqual((kind, values[6:]), ("D", [3, 2, 4]))
         for bad in ("D,1,338", "D,1,1024,338,9,12,24,0,0,0", "D,1,1,1,1,1,1,64,0,0",
                     "D,1,1,1,1,1,1,0,0,0,9", "D,NaN,1,1,1,1,1,0,0,0", "BOOT", "E,-1,BOOT,1"):
@@ -20,26 +20,41 @@ class ProtocolTests(unittest.TestCase):
     def test_fixed_control_events_and_close_count(self):
         with tempfile.TemporaryDirectory() as temp:
             recorder = Recorder(Path(temp) / "r")
-            for line in ("E,10,FW,8", "E,11,MEAN_X10,67", "E,12,TARGET_DEG,90", "E,13,TARGET_DEG,180"):
+            for line in ("E,10,FW,8", "E,11,MEAN_X10,67", "E,12,TARGET_DEG,90", "E,13,TARGET_DEG,180", "E,14,CLOSE,180"):
                 self.assertIsNotNone(recorder.accept(line))
             report = recorder.close()
             self.assertEqual(report["close_commands"], 1)
+            self.assertEqual(report["events"], 5)
 
-    def test_modular_fault_bits_and_legacy_csv(self):
-        parsed=parse_line("D,100,338,338,5,8,12,48,0,0")
+    def test_fault_bits_and_optional_derived_csv_columns(self):
+        parsed=parse_line("D,100,338,338,5,5,10,48,0,0")
         self.assertEqual(parsed[1][6],48)
         with tempfile.TemporaryDirectory() as temp:
             recorder=Recorder(Path(temp)/"r")
-            sample=recorder.accept("D,100,338,338,5,8,12,48,0,0")
+            sample=recorder.accept("D,100,338,338,5,5,10,48,0,0")
             recorder.close()
             self.assertEqual((sample.row()["data_loss"],sample.row()["hardware_fault"]),(1,1))
             path=Path(temp)/"r"/"senal.csv"
             with path.open(encoding="utf-8-sig",newline="") as f:
-                rows=list(csv.DictReader(f))
+                reader=csv.DictReader(f)
+                self.assertEqual(reader.fieldnames, FIELDS)
+                rows=list(reader)
+            self.assertEqual(read_csv(path), [sample])
             fields=[key for key in rows[0] if key not in ("data_loss","hardware_fault")]
             with path.open("w",encoding="utf-8-sig",newline="") as f:
                 writer=csv.DictWriter(f,fields,extrasaction="ignore"); writer.writeheader(); writer.writerows(rows)
             self.assertEqual(read_csv(path)[0].flags,48)
+
+    def test_demo_uses_fixed_levels_and_events(self):
+        frames = [parse_line(line) for line in demo_lines(20)]
+        self.assertTrue(all(frames))
+        events = [payload for kind, payload in frames if kind == "E"]
+        self.assertIn((0, "FW", 8), events)
+        self.assertEqual({value for _, name, value in events if name == "TARGET_DEG"}, {0, 90, 180})
+        self.assertEqual({name for _, name, _ in events}, {"BOOT", "FW", "MODE", "MEAN_X10", "TARGET_DEG"})
+        for kind, payload in frames:
+            if kind == "D":
+                self.assertEqual(payload[4:6], [5, 10])
 
     def test_rollover_and_reboot(self):
         clock = DeviceClock()
@@ -141,11 +156,12 @@ class SerialTests(unittest.TestCase):
 
     def test_commands_and_local_labels(self):
         commands = queue.Queue()
-        for command in ("c", "2", "@HAND", "@INDEX", "unexpected"):
+        for command in ("c", "x", "?", "2", "@REST", "@HAND", "@END", "@INDEX", "unexpected"):
             commands.put(command)
         device, lines = self.run_fake([b"D,100,338,338,4,12,24,0,0,0\n"], commands)
-        self.assertEqual(device.writes, [b"c", b"?"])
-        self.assertEqual(parse_line(lines[0]), ("E", (0, "MARK_HAND", 0)))
+        self.assertEqual(device.writes, [b"c", b"x", b"?", b"?"])
+        self.assertEqual([parse_line(line) for line in lines[:3]],
+                         [("E", (0, f"MARK_{name}", 0)) for name in ("REST", "HAND", "END")])
 
 
 if __name__ == "__main__":

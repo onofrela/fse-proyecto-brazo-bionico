@@ -13,6 +13,7 @@ from senal import (Recorder, Sample, demo_lines, draw_plot, make_figure,
                    read_csv, save_plot, serial_lines, status_text, summarize)
 
 HERE = Path(__file__).resolve().parent
+CONTROL_FIRMWARE = 8
 
 
 def new_directory(base):
@@ -72,10 +73,8 @@ def run_gui(args):
             self.target_angle = 0
             self.firmware_version = 0
             self.capture_started = None
-            self.calibrating = False
             self.prompt = "Conecta para consultar el modo de control."
-            self.prompt_until = None
-            self.calibration_status = tk.StringVar(value=self.prompt)
+            self.control_status = tk.StringVar(value=self.prompt)
             self.activity_status = tk.StringVar(value="Promedio: — · Objetivo: —")
             self.label = tk.StringVar(value="REST")
             self.mode = tk.StringVar(value="Sensor USB")
@@ -110,13 +109,13 @@ def run_gui(args):
             self.open_button.pack(side="left")
             ttk.Button(actions, text="Exportar gráfica completa PNG…", command=self.export).pack(side="left", padx=8)
             ttk.Label(actions, text="En vivo: últimos 30 s. El CSV conserva todas las muestras recibidas.").pack(side="left")
-            calibration_controls = ttk.Frame(wrapper)
-            calibration_controls.pack(fill="x", pady=(0, 4))
-            self.cal_button = ttk.Button(calibration_controls, text="Calibrar (22 s)", command=lambda: self.send("c"), state="disabled")
-            self.cal_button.pack(side="left")
-            self.cancel_button = ttk.Button(calibration_controls, text="Cancelar / abrir", command=lambda: self.send("x"), state="disabled")
-            self.cancel_button.pack(side="left", padx=5)
-            ttk.Label(calibration_controls, textvariable=self.activity_status).pack(side="left", padx=12)
+            control_actions = ttk.Frame(wrapper)
+            control_actions.pack(fill="x", pady=(0, 4))
+            self.resume_button = ttk.Button(control_actions, text="Activar control", command=lambda: self.send("c"), state="disabled")
+            self.resume_button.pack(side="left")
+            self.pause_button = ttk.Button(control_actions, text="Pausar / abrir", command=lambda: self.send("x"), state="disabled")
+            self.pause_button.pack(side="left", padx=5)
+            ttk.Label(control_actions, textvariable=self.activity_status).pack(side="left", padx=12)
             markers = ttk.Frame(wrapper)
             markers.pack(fill="x", pady=(0, 4))
             ttk.Label(markers, text="Etiqueta del ensayo:").pack(side="left")
@@ -124,7 +123,7 @@ def run_gui(args):
             self.mark_button = ttk.Button(markers, text="Marcar inicio", command=lambda: self.send("@" + self.label.get()), state="disabled")
             self.mark_button.pack(side="left")
             ttk.Label(markers, text="Sólo añade una marca local al CSV de eventos.").pack(side="left", padx=8)
-            ttk.Label(wrapper, textvariable=self.calibration_status, wraplength=1080, foreground="#1d4ed8").pack(anchor="w", pady=3)
+            ttk.Label(wrapper, textvariable=self.control_status, wraplength=1080, foreground="#1d4ed8").pack(anchor="w", pady=3)
             ttk.Label(wrapper, textvariable=self.status, font=("Segoe UI", 10, "bold")).pack(anchor="w")
             ttk.Label(wrapper, textvariable=self.metrics).pack(anchor="w", pady=3)
             ttk.Label(wrapper, textvariable=self.path_label, wraplength=1100).pack(anchor="w")
@@ -164,69 +163,32 @@ def run_gui(args):
 
         def update_controls(self):
             recording = self.thread is not None and self.mode.get() == "Sensor USB"
-            capable = recording and self.firmware_version in (6, 7, 8)
-            self.cal_button.configure(text="Activar control" if self.firmware_version == 8 else "Calibrar (22 s)", state="normal" if capable and not self.calibrating else "disabled")
-            self.cancel_button.configure(text="Pausar / abrir" if self.firmware_version == 8 else "Cancelar / abrir", state="normal" if capable else "disabled")
+            capable = recording and self.firmware_version == CONTROL_FIRMWARE
+            self.resume_button.configure(state="normal" if capable else "disabled")
+            self.pause_button.configure(state="normal" if capable else "disabled")
             self.mark_button.configure(state="normal" if recording else "disabled")
 
         def send(self, command):
             if self.thread and self.mode.get() == "Sensor USB":
                 self.commands.put(command)
-                if command == "c" and self.firmware_version != 8:
-                    self.calibrating = True
-                    self.prompt = "Calibración solicitada. Espera las instrucciones; la mano permanecerá abierta."
-                    self.prompt_until = None
-                    self.update_controls()
 
         def handle_event(self, event):
             name, value = event["name"], event["value"]
-            instructions = {"CAL_PENDING": "Esperando señal estable y mano abierta.",
-                "CAL_PREP_REST": "Prepárate: relaja la mano y mantén quieto el brazo.",
-                "CAL_REST": "REPOSO: mantén la mano relajada y el brazo quieto.",
-                "CAL_PREP_CONTRACT": "Prepárate para contraer y relajar toda la mano repetidamente.",
-                "CAL_CONTRACT": "ACTIVIDAD: alterna una contracción cómoda de toda la mano y relajación."}
             if name == "BOOT":
                 self.firmware_version = 0
-                self.calibrating = False
-                self.prompt = "Placa reiniciada. Consultando firmware y calibración…"
-                self.prompt_until = None
+                self.prompt = "Placa reiniciada. Consultando firmware…"
             elif name == "FW":
                 self.firmware_version = value
-                if value == 8:
-                    self.calibrating = False
+                if value == CONTROL_FIRMWARE:
                     self.prompt = "Modo fijo: promedio de 200 muestras (~200 ms). <5: 0° · 5 a <10: 90° · ≥10: 180°. Sin calibración."
-                    self.prompt_until = None
-                elif value not in (6, 7):
-                    self.prompt = "Carga el firmware con ponderación (v7) para habilitar la calibración."
-                    self.prompt_until = None
+                else:
+                    self.prompt = "Carga FW8 para habilitar el control fijo por tres niveles."
             elif name in ("MEAN_X10", "TARGET_DEG", "TARGET_STATUS"):
                 if name == "MEAN_X10": self.mean_x10 = value
                 else: self.target_angle = value
                 self.activity_status.set(f"Promedio: {self.mean_x10 / 10:.1f} · Objetivo: {self.target_angle}°")
-            elif name == "CONTROL_PAUSED" and self.firmware_version == 8:
-                self.calibrating = False
+            elif name == "CONTROL_PAUSED" and self.firmware_version == CONTROL_FIRMWARE:
                 self.prompt = "Control pausado y apertura solicitada. Pulsa Activar control para continuar." if value else "Control activo por promedios. <5: 0° · 5 a <10: 90° · ≥10: 180°. Sin calibración."
-                self.prompt_until = None
-            elif name == "ACTIVITY":
-                self.activity_status.set(f"Actividad ponderada: {value / 10:.1f}% · Contracción: cerrar · Relajación: abrir")
-            elif name in instructions:
-                self.calibrating = True
-                self.prompt = instructions[name]
-                self.prompt_until = time.monotonic() + value / 1000 if value else None
-            elif name == "CAL_FAILED":
-                reasons = {1: "Se perdió la señal.", 2: "Faltaron muestras.",
-                           3: "Reposo y actividad se superponen: repite el ensayo o revisa los electrodos/banda del módulo.",
-                           4: "La envolvente excede el rango del histograma; revisa ganancia/ruido."}
-                self.calibrating = False
-                self.prompt = "CALIBRACIÓN RECHAZADA: " + reasons.get(value, "Firmware anterior: la calibración no separó las mediciones.")
-                self.prompt_until = None
-            elif name in ("TH_CLOSE", "CAL_CANCEL"):
-                self.calibrating = False
-                self.prompt = "Calibración aceptada. Relaja para rearmar el control." if name == "TH_CLOSE" else "Calibración cancelada / apertura solicitada."
-                self.prompt_until = None
-            elif name == "CAL_VALID" and self.firmware_version in (6, 7) and not self.calibrating and "RECHAZADA" not in self.prompt:
-                self.prompt = "Calibración disponible. Relaja para rearmar." if value else "SIN CALIBRAR: pulsa Calibrar cuando estés preparado."
-                self.prompt_until = None
             self.update_controls()
 
         def start(self):
@@ -247,9 +209,7 @@ def run_gui(args):
             self.firmware_version = 0
             self.capture_started = time.monotonic()
             self.activity_status.set("Promedio: — · Objetivo: —")
-            self.calibrating = False
             self.prompt = "Consultando versión del firmware…" if not demo else "Demo sintética: los controles de actuadores están deshabilitados."
-            self.prompt_until = None
             self.directory = new_directory(args.output)
             self.stop.clear()
             self.set_running(True)
@@ -281,7 +241,6 @@ def run_gui(args):
             self.samples = samples
             self.directory = None
             self.prompt = "CSV cargado: se muestra la envolvente guardada, sin aplicar de nuevo el filtrado."
-            self.prompt_until = None
             self.path_label.set(str(Path(path).resolve()))
             self.status.set("Registro cargado · " + status_text(samples[-1].flags))
             self.dirty = True
@@ -331,7 +290,6 @@ def run_gui(args):
                         self.write_log(f"{payload['time_s']:8.3f} s  {payload['name']} = {payload['value']}")
                     elif kind == "done":
                         self.thread = None
-                        self.calibrating = False
                         self.set_running(False)
                         self.status.set("Captura terminada" if payload is None else "Captura detenida: " + payload)
                         self.write_log(self.status.get())
@@ -351,10 +309,9 @@ def run_gui(args):
                 return
             if (self.thread and self.mode.get() == "Sensor USB" and not self.firmware_version
                     and self.capture_started and time.monotonic()-self.capture_started>6
-                    and self.prompt in ("Consultando versión del firmware…", "Placa reiniciada. Consultando firmware y calibración…")):
-                self.prompt = "Carga el firmware con ponderación (v7) para habilitar la calibración guiada."
-            remaining = max(0, int(self.prompt_until - time.monotonic()) + 1) if self.prompt_until else None
-            self.calibration_status.set(self.prompt + (f" ({remaining} s)" if remaining is not None else ""))
+                    and self.prompt in ("Consultando versión del firmware…", "Placa reiniciada. Consultando firmware…")):
+                self.prompt = "Sin respuesta de versión. Carga FW8 para habilitar el control fijo por tres niveles."
+            self.control_status.set(self.prompt)
             if self.dirty:
                 draw_plot(self.figure, self.axes, self.samples, self.plot_title(), window=30 if self.thread else None)
                 self.canvas.draw_idle()
