@@ -1,6 +1,8 @@
 # Historial de versiones
 
-La base modular recibida mediante pull es a37d208, conservada sin reescribir. La serie siguiente permanece en main y añade evidencia, filtrado, calibración, decisión y telemetría. No se crearon ramas adicionales.
+La base modular recibida mediante pull es a37d208, conservada sin reescribir. La serie histórica siguiente añade evidencia, filtrado, calibración, decisión y telemetría. Las etiquetas ya fueron creadas localmente; sus commits se verificaron con `git cat-file -t` y corresponden a la tabla.
+
+La entrega final es **FW8**, con control fijo por tres niveles y sin calibración, en la rama `limpieza-fw8`. Se etiquetará **v1.0.0** al terminar la rama, en el paso 12. La versión `v0.6.2` citada anteriormente no existe.
 
 | Etiqueta | Commit | Fecha | Alcance |
 | --- | --- | --- | --- |
@@ -11,9 +13,9 @@ La base modular recibida mediante pull es a37d208, conservada sin reescribir. La
 | v0.6.0-control | f84ece1 | 2026-11-09T05:03:34-06:00 | feat(decision): ponderar actividad y completar el cierre de la mano |
 | v0.6.0-telemetria | 0906c9b | 2026-11-09T06:51:34-06:00 | feat(diagnostico): conectar telemetria modular y analizador de senal |
 | v0.6.0-evidencia | 349d613 | 2026-11-09T07:49:31-06:00 | fix(evidencia): conservar bytes originales y verificar archivos por SHA256 |
-| v0.6.0 | Este commit | 2026-11-09T08:56:13-06:00 | docs(sensor): documentar inestabilidad y diagnostico pendiente |
+| v0.6.0 | 3a56b3c | 2026-11-09T08:56:13-06:00 | docs(sensor): documentar inestabilidad y diagnostico pendiente |
 
-Para recorrer la serie: `git log --reverse --oneline a37d208..main`. Para comparar la base modular y la revisión final: `git diff a37d208..v0.6.0`. Las etiquetas son anotadas y permanecen locales hasta un push explícito.
+Para recorrer la serie histórica: `git log --reverse --oneline a37d208..v0.6.0`. Para comparar la base modular y el cierre de esa serie: `git diff a37d208..v0.6.0`. Las etiquetas son anotadas y permanecen locales, sin publicar.
 
 La normalización de texto de Git se desactiva para los CSV y JSON de evidencia, preservando BOM y finales de línea. Comprueba los blobs de la revisión final con `python scripts/verificar_mediciones.py --git-ref HEAD`.
 

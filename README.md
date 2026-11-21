@@ -6,7 +6,7 @@ La implementación conserva la plataforma y los pines de actuadores del proyecto
 
 La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
-Versión actual: **v0.6.2**, firmware modular `FW=8`. [Mediciones reales](docs/mediciones/2026-11-09/README.md) · [Control por promedios](docs/control-senal.md).
+Versión actual: **FW8**, entrega final con control fijo por tres niveles, sin calibración. Se etiquetará **v1.0.0** al terminar la rama `limpieza-fw8`. [Mediciones reales](docs/mediciones/2026-11-09/README.md) · [Control por promedios](docs/control-senal.md).
 
 ## Estado actual del sensor
 
