@@ -137,4 +137,86 @@ void testHardwareAndManual() {
   Fake::feed(manual,1021,1000);assert(manual.status().position==0);
   result("HW-MANUAL","fallos de arranque inhiben salida y D8 conserva modo manual","servos/ADC fallidos y pulsaciones manuales verificados",true);
 }
-int main() {testAutonomousThreePositions();testClockAndBatch();testHardwareAndManual();}
+
+void testFw8Latency() {
+  constexpr uint32_t LOOP_MS = 1;
+  constexpr uint16_t REST_ADC = 338;
+  constexpr int MID_AMPLITUDE_ADC = 12, HIGH_AMPLITUDE_ADC = 40;
+  constexpr unsigned CARRIER_HZ = 100;
+  constexpr double PI = 3.141592653589793;
+  // La muestra SIGNAL_SETTLE_SAMPLES ya es valida y cuenta en el primer bloque.
+  constexpr uint32_t REST_SAMPLES = Config::SIGNAL_SETTLE_SAMPLES +
+                                  Config::LEVEL_AVERAGE_SAMPLES - 1;
+  constexpr uint32_t OBSERVATION_MS = 2 * Config::LEVEL_AVERAGE_SAMPLES +
+                                     Config::FILTER_WINDOW_SAMPLES;
+  static_assert(Config::FIRMWARE_VERSION == 8, "Revisar LAT-FW8 al cambiar firmware");
+  static_assert(Config::SAMPLE_HZ == 1000, "El bucle simula una muestra cada ms");
+  static_assert(Config::LEVEL_AVERAGE_SAMPLES == 200, "Revisar las fases de LAT-FW8");
+  struct Extremes {
+    uint32_t best = UINT32_MAX, worst = 0;
+    unsigned bestPhase = 0, worstPhase = 0;
+    void add(uint32_t delay, unsigned phase) {
+      if (delay < best) { best = delay; bestPhase = phase; }
+      if (delay > worst) { worst = delay; worstPhase = phase; }
+    }
+    std::string describe() const {
+      return "mejor " + std::to_string(best) + " ms (fase " + std::to_string(bestPhase) +
+             "), peor " + std::to_string(worst) + " ms (fase " + std::to_string(worstPhase) + ")";
+    }
+  };
+  std::string evidence;
+  for (int amplitude : {MID_AMPLITUDE_ADC, HIGH_AMPLITUDE_ADC}) {
+    Extremes targetTimes, rampTimes;
+    for (unsigned phase = 0; phase < Config::LEVEL_AVERAGE_SAMPLES; ++phase) {
+      Fake::reset(); Fake::selected = true;
+      Hand::Application app; app.begin(0);
+      // Fase = muestras de reposo ya acumuladas en el bloque actual (0..199).
+      Fake::feed(app, LOOP_MS, REST_SAMPLES + phase);
+      assert(app.status().healthy && app.status().meanX10 == 0);
+      assert(app.status().target == 0 && app.status().position == 0 && Fake::position == 0);
+      const uint32_t onset = (REST_SAMPLES + phase + 1) * LOOP_MS;
+      uint32_t targetDelay = UINT32_MAX, rampDelay = UINT32_MAX;
+      for (uint32_t delay = 0; delay < OBSERVATION_MS; delay += LOOP_MS) {
+        const uint32_t now = onset + delay;
+        // Contraccion artificial sostenida: misma onda desde el inicio en todas las fases.
+        // El origen es la primera muestra ADC del estimulo, no el arranque del firmware.
+        const int wave = int(amplitude * std::sin(2 * PI * CARRIER_HZ * (delay + LOOP_MS) / Config::SAMPLE_HZ));
+        Fake::push(now, uint16_t(REST_ADC + wave));
+        const unsigned writesBefore = Fake::writes;
+        app.tick(now);
+        const auto status = app.status();
+        assert(status.healthy && !status.outputFault && !status.paused);
+        if (targetDelay == UINT32_MAX && status.target != 0) {
+          targetDelay = delay;
+          assert(status.target == Config::POSITION_FULL_SCALE / 2 ||
+                 status.target == Config::POSITION_FULL_SCALE);
+          if (amplitude == MID_AMPLITUDE_ADC) assert(status.target == Config::POSITION_FULL_SCALE / 2);
+          // Solo puede cambiar al completar un bloque; incluye la muestra de inicio.
+          assert((phase + 1 + delay / LOOP_MS) % Config::LEVEL_AVERAGE_SAMPLES == 0);
+        }
+        // Observar la escritura al doble de Outputs, no inferirla del destino.
+        if (rampDelay == UINT32_MAX && Fake::position != 0) {
+          rampDelay = delay;
+          assert(Fake::writes > writesBefore && Fake::position == Config::MOTION_STEP);
+          assert(status.position == Fake::position);
+        }
+        if (targetDelay != UINT32_MAX && rampDelay != UINT32_MAX) break;
+      }
+      assert(targetDelay != UINT32_MAX && rampDelay != UINT32_MAX);
+      assert(rampDelay == targetDelay); // FW8 ordena el primer paso en la misma vuelta.
+      targetTimes.add(targetDelay, phase);
+      rampTimes.add(rampDelay, phase);
+    }
+    assert(targetTimes.best < targetTimes.worst);
+    if (!evidence.empty()) evidence += "; ";
+    evidence += "amplitud " + std::to_string(amplitude) + " ADC: destino " + targetTimes.describe() +
+                ", primer paso escrito " + rampTimes.describe();
+  }
+  result("LAT-FW8",
+         "simulacion de software, bucle 1 ms, 200 fases por amplitud; ADC -> filtro -> bloque -> rampa; no acredita R1",
+         evidence + "; reposo ADC 338, seno 100 Hz; fase=0..199 muestras previas; "
+                    "retardo desde primera muestra de contraccion (0 ms si misma vuelta); "
+                    "sin ISR/PWM ni medicion en la mano", true);
+}
+
+int main() {testAutonomousThreePositions();testClockAndBatch();testHardwareAndManual();testFw8Latency();}
