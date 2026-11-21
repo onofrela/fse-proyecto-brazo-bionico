@@ -22,6 +22,7 @@ SUITES = {
     "integration": ["tests/integration_test.cpp", "Inmoov_EMG/Application.cpp"],
     "storage": ["tests/storage_test.cpp", "Inmoov_EMG/Storage.cpp"],
     "drivers": ["tests/drivers_test.cpp", "Inmoov_EMG/Outputs.cpp", "Inmoov_EMG/Diagnostics.cpp"],
+    "diagnostics-normal": ["tests/diagnostics_normal_test.cpp", "Inmoov_EMG/Diagnostics.cpp"],
 }
 
 
@@ -74,6 +75,9 @@ def main():
         else:
             command = [compiler, "-std=c++14", "-Wall", "-Wextra", "-Werror", "-UNDEBUG",
                        "-Itests/fakes", *sources, "-o", str(executable)]
+        # Probar el driver UART aunque el firmware normal lo excluya por defecto.
+        if name == "drivers":
+            command.append("/DEMG_SERIAL_DEBUG=1" if compiler == "cl" else "-DEMG_SERIAL_DEBUG=1")
         command[0] = shutil.which(compiler, path=environment.get("PATH", environment.get("Path"))) or compiler
         run(command, env=environment)
         arguments = [str(SYNTHETIC_CSV)] if name == "replay" else []

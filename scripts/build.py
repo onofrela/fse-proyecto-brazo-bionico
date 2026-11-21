@@ -26,7 +26,10 @@ def main():
     parser.add_argument("--cli", help="Ruta a arduino-cli")
     parser.add_argument("--config", help="Configuracion YAML de Arduino CLI")
     parser.add_argument("--servo-library", type=Path, help="Carpeta Servo con library.properties")
-    parser.add_argument("--no-debug", action="store_true")
+    variants = parser.add_mutually_exclusive_group()
+    variants.add_argument("--variant", choices=("normal", "depuracion"),
+                          help="Compilar solo esta variante; por defecto compila ambas")
+    variants.add_argument("--no-debug", action="store_true", help="Alias de --variant normal")
     parser.add_argument("--no-probe", action="store_true")
     args = parser.parse_args()
     cli = args.cli or shutil.which("arduino-cli")
@@ -66,21 +69,21 @@ def main():
     properties = dict(line.split("=", 1) for line in (servo / "library.properties").read_text(encoding="utf-8").splitlines() if "=" in line)
     if properties.get("name") != "Servo" or properties.get("version") != SERVO:
         raise RuntimeError(f"La biblioteca seleccionada no es Servo@{SERVO}: {servo}")
-    variant = "uno" + ("-sin-uart" if args.no_debug else "") + ("-sin-sonda" if args.no_probe else "")
     run([sys.executable, str(ROOT / "scripts/export_ino.py")])
-    command = base + ["compile", "--fqbn", "arduino:avr:uno", "--warnings", "all", "--library", str(servo.resolve()),
-                      "--build-path", str(build / variant)]
-    flags = []
-    if args.no_debug:
-        flags.append("-DEMG_SERIAL_DEBUG=0")
-    if args.no_probe:
-        flags.append("-DEMG_SAMPLE_PROBE=0")
-    if flags:
+    selected = ["normal"] if args.no_debug else ([args.variant] if args.variant else ["normal", "depuracion"])
+    for name in selected:
+        variant = name + ("-sin-sonda" if args.no_probe else "")
+        command = base + ["compile", "--fqbn", "arduino:avr:uno", "--warnings", "all", "--library", str(servo.resolve()),
+                          "--build-path", str(build / variant)]
+        flags = ["-DEMG_SERIAL_DEBUG=" + ("1" if name == "depuracion" else "0")]
+        if args.no_probe:
+            flags.append("-DEMG_SAMPLE_PROBE=0")
         command += ["--build-property", "compiler.cpp.extra_flags=" + " ".join(flags)]
-    command.append(str(SKETCH_DIR))
-    output = run(command)
-    (build / (variant + ".txt")).write_text(output, encoding="utf-8")
-    print(output)
+        command.append(str(SKETCH_DIR))
+        print(f"Compilando {variant}...", flush=True)
+        output = run(command)
+        (build / (variant + ".txt")).write_text(output, encoding="utf-8")
+        print(output)
 
 
 if __name__ == "__main__":

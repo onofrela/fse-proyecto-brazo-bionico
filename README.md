@@ -72,7 +72,7 @@ Alimenta los servos desde una fuente/buck dimensionada para sus corrientes, con 
 | Selector | D9 | GND = manual; abierto = EMG, `INPUT_PULLUP` |
 | Pines libres | D7/D12/D13 | Sin asignación en el firmware |
 | Prueba de muestreo | D2 | Salida opcional; un flanco por conversión ADC |
-| Depuración USB | D0/D1 | UART a 115200 baud; sin módulo Bluetooth |
+| Depuración USB | D0/D1 | UART a 115200 baud solo en la variante de depuración |
 
 La tabla sustituye los pines de servo D2–D6 del código original: el proyecto usa D3/D5/D6/D10/D11.
 
@@ -87,7 +87,11 @@ Abre [Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) para cargar el firmware complet
 3. Carga el programa y verifica primero el modo manual: D9 a GND y una pulsación en D8 para cerrar; otra para abrir. Mantener pulsado no repite la orden. Un cambio de modo ordena abrir la mano.
 4. Conecta OUTPUT y ambas salidas LO. Espera 2 s de señal estable. El control fijo comienza tras estabilizar la señal y completar 200 muestras nuevas; no requiere calibración.
 
-Para identificar el firmware cargado, abre el Monitor Serie a **115200 baudios** y envía `?`. Debe aparecer `E,...,SERVO_REVERSE_MASK,28`: indica que medio, anular y meñique están invertidos. Si el movimiento físico no corresponde, comprueba que sus señales estén en D6, D10 y D11.
+La compilación predeterminada es **normal**, con `EMG_SERIAL_DEBUG=0`: no inicia, lee ni emite por UART. La UART del UNO no ofrece cifrado ni autenticación; la variante de uso normal evita transmitir datos de señal y estado.
+
+Para usar el analizador, carga la variante **depuracion** según los comandos de compilación y carga de abajo. En Arduino IDE puedes añadir `#define EMG_SERIAL_DEBUG 1` al principio del `.ino`, antes de la sección `Config.h`, y subirlo; la regeneración elimina esa edición local. Con CLI se habilita mediante `-DEMG_SERIAL_DEBUG=1`, que `build.py` aplica a esa variante. Para volver al uso normal, carga `build/normal` o elimina el define del IDE y vuelve a subir.
+
+Solo en depuración, abre el Monitor Serie a **115200 baudios** y envía `?` para identificar el firmware. Debe aparecer `E,...,SERVO_REVERSE_MASK,28`: indica que medio, anular y meñique están invertidos. Cierra el monitor antes de abrir el analizador. El flujo periódico arranca apagado y se activa con `p`; el analizador lo envía automáticamente si no recibe flujo inicial. Los eventos puntuales de arranque, fallas y consultas pueden emitirse sin `p`. Si el movimiento físico no corresponde, comprueba que sus señales estén en D6, D10 y D11.
 
 Los pulsos de 544/2400 us representan **0°/180° ordenados**, sin garantizar esos ángulos físicos. El ángulo real depende del servo, polea y tensores; debe medirse y ajustarse mecánicamente como indica R3. Se usan `writeMicroseconds()` y límites por dedo para no confundir grados con ancho de pulso.
 
@@ -99,7 +103,7 @@ La rampa usa 544/1472/2400 us para los objetivos 0°/90°/180° en pulgar e índ
 
 En el analizador, Iniciar graba y Detener termina el registro. Pausar / abrir (`x`) pausa el control y solicita apertura. Activar control (`c`) lo reactiva, sin calibrar. La pantalla muestra media y destino. D9/D8 conservan modo manual. La variabilidad física sigue en investigación.
 
-Las fallas se reportan por UART a 115200 baudios mediante eventos `E,...`, incluidos `SIGNAL_FAULT`, `SERVO_INIT_FAILED`, `SERVO_WRITE_FAILED`, `ADC_INIT_FAILED` y `EEPROM_BOOT_FAILED`.
+En la variante de depuración, las fallas se reportan por UART a 115200 baudios mediante eventos `E,...`, incluidos `SIGNAL_FAULT`, `SERVO_INIT_FAILED`, `SERVO_WRITE_FAILED`, `ADC_INIT_FAILED` y `EEPROM_BOOT_FAILED`.
 
 ## Temporización y diagnóstico
 
@@ -116,18 +120,18 @@ Las fallas se reportan por UART a 115200 baudios mediante eventos `E,...`, inclu
 
 No uses `tone()`, `analogRead()` ni reconfigures Timer1/Timer2 mientras este firmware esté activo. No se usa `analogWrite()` para los servos; Servo genera sus señales por interrupciones incluso en los pines no marcados como PWM.
 
-Monitor serie a **115200 baud**:
+Monitor serie a **115200 baud**, solo con la variante de depuración:
 
-- `c`: iniciar/repetir calibración guiada de 22 s.
-- `?`: consultar versión, banda, validez de calibración y percentiles; ACTIVITY informa ponderación 0–1000.
-- `p`: activar/desactivar datos de diagnóstico a 10 Hz.
-- `x`: cancelar calibración y ordenar apertura; en EMG exige reposo antes de volver a cerrar. No sustituye al interruptor físico de alimentación.
+- `c`: reactivar el control fijo, sin calibración.
+- `?`: consultar versión, banda, fronteras fijas, estado del control e inversión de servos.
+- `p`: activar/desactivar datos de diagnóstico a 10 Hz, apagados al arrancar, y eventos auxiliares periódicos.
+- `x`: pausar el control y ordenar apertura. No sustituye al interruptor físico de alimentación.
 
 Eventos: `E,milisegundos,nombre,valor`. `FW=8`, `FIXED_CONTROL=1`, `AVERAGE_SAMPLES=200`, `LEVEL_MID=5` y `LEVEL_HIGH=10` describen el modo fijo. `MEAN_X10` informa el promedio en décimas, `TARGET_DEG` el destino 0/90/180 y `CONTROL_PAUSED` la pausa. Son órdenes, no movimiento físico medido.
 
 Datos: `D,milisegundos,ADC_crudo,base_DC,envolvente,umbral_abrir,umbral_cerrar,estado,overruns,logs_descartados`. `estado` combina bits: 1 = LO+/LO− alto; 2 = recorte/rango inválido; 4 = procesamiento aún no listo; 8 = ADC sin muestras recientes; 16 = pérdida de datos sin recuperación completa; 32 = falla de inicialización ADC o de salida a servos. Pueden sumarse varios bits. `estado=0` solo indica que estos controles de señal pasan; no certifica que la actividad sea una contracción voluntaria.
 
-Los datos a 10 Hz sirven para ver niveles y estados, no para reconstruir la forma de onda ECG. Los overruns cuentan pérdidas detectadas por ADC ocupado/pendiente o cola llena; el contador satura en 65535. No cuentan muestras omitidas si Timer2 deja de funcionar. La UART descarta líneas si no hay espacio para evitar bloquear el control; en una prueba de registro, verifica que no se descarten líneas. Puedes compilar con `EMG_SERIAL_DEBUG=0` para desactivar UART; seguirá disponible la calibración con D8 al arranque.
+Los datos a 10 Hz sirven para ver niveles y estados, no para reconstruir la forma de onda ECG. Los overruns cuentan pérdidas detectadas por ADC ocupado/pendiente o cola llena; el contador satura en 65535. No cuentan muestras omitidas si Timer2 deja de funcionar. La UART descarta líneas si no hay espacio para evitar bloquear el control; en una prueba de registro, verifica que no se descarten líneas. El analizador requiere la variante de depuración; el firmware normal conserva el control fijo autónomo y el modo manual con D9/D8, sin comandos UART.
 
 Un LO alto, falta de muestras o hueco de adquisición de más de 10 ms, cola desbordada o recorte ordenan apertura en modo de señal. Una muestra cuya edad supera 10 ms se descarta: leer datos viejos no renueva la salud del sensor. Por defecto se considera recorte `raw <= 5` o `raw >= 669`, calculado para sensor de 3.3 V y AVcc=5 V. `ADC_REFERENCE_MV`, `SENSOR_SUPPLY_MV` y márgenes están en `Config.h`; si se ajustan según mediciones, recalibra. El recorte, el hueco de adquisición o la pérdida de datos invalidan la ventana y exigen otras 2000 muestras estables (~2 s). Una falla durante la calibración la rechaza y requiere repetirla; en operación normal la señal puede recuperarse automáticamente, exigiendo reposo antes del siguiente cierre. La apertura conserva la rampa del mecanismo; no es una desconexión de potencia.
 
@@ -168,21 +172,21 @@ if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Servo" }
 Desde la raíz del repositorio:
 
 ```powershell
-python scripts/test.py
+python scripts/test.py --report build/resultados-pruebas.md
 python scripts/build.py
-python scripts/build.py --no-debug --no-probe
+python scripts/build.py --variant normal --no-probe
 ```
 
-`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`, y compila su carpeta. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Para verificar sin actualizar el informe histórico usa `python scripts/test.py --report build/resultados-pruebas.md`. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); se retiró el verificador de capturas reales. En Bash también puede usarse `bash scripts/verify.sh`.
+`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`, y compila su carpeta. Sin opciones genera ambas variantes: `build/normal` (UART deshabilitada) y `build/depuracion` (UART habilitada), con logs `normal.txt` y `depuracion.txt`. `--variant normal` o `--variant depuracion` selecciona solo una; `--no-debug` se conserva como alias de la normal. `--no-probe` desactiva D2 y añade `-sin-sonda` a la carpeta y al log. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y habilita `EMG_SERIAL_DEBUG=1` explícitamente para probar el driver UART; también comprueba que la configuración normal no inicia, lee ni escribe UART. Por defecto regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Para verificar sin actualizar el informe histórico usa `python scripts/test.py --report build/resultados-pruebas.md`. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); se retiró el verificador de capturas reales. En Bash también puede usarse `bash scripts/verify.sh`.
 
 Para cargar: Arduino IDE → abrir `Inmoov_EMG/Inmoov_EMG.ino` → Arduino Uno → puerto de la placa → Subir. O, después de compilar con CLI:
 
 ```powershell
-arduino-cli upload --fqbn arduino:avr:uno --port COM3 --input-dir build/uno Inmoov_EMG
+arduino-cli upload --fqbn arduino:avr:uno --port COM3 --input-dir build/normal Inmoov_EMG
 if ($LASTEXITCODE -ne 0) { throw "No se pudo cargar el firmware" }
 ```
 
-Sustituye COM3 por el puerto real. Si usaste un YAML personalizado, pásalo también a `upload`. Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. La calibración válida se recupera de EEPROM; sin ella, la mano permanece abierta hasta que se solicita la calibración. La variante sin UART conserva el pulsador D8 al arrancar.
+Para cargar la variante que necesita el analizador, usa el mismo comando con `--input-dir build/depuracion`. Sustituye COM3 por el puerto real. Si usaste un YAML personalizado, pásalo también a `upload`. Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. Ambas variantes ejecutan FW8 sin calibración y conservan el modo manual con D9/D8.
 
 Resultados y límites de validación están en [la tabla de pruebas](docs/resultados-pruebas.md) y [la matriz de requisitos](docs/requisitos.md). No se cargó firmware en una placa ni se accionaron motores durante esta modificación. El movimiento, PWM, consumo, exactitud muscular, autonomía y estabilidad eléctrica requieren ensayos físicos.
 

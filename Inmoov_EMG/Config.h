@@ -88,8 +88,9 @@ static_assert(SAMPLE_QUEUE_CAPACITY > 1, "Cola insuficiente");
 #define EMG_SAMPLE_PROBE 1
 #endif
 
-// UART de diagnostico, nunca es una entrada Bluetooth.
+// Uso normal sin UART: el enlace del UNO no ofrece cifrado ni autenticacion.
+// Solo para depuracion: compilar con -DEMG_SERIAL_DEBUG=1 o definirlo antes de Config.h.
 #ifndef EMG_SERIAL_DEBUG
-#define EMG_SERIAL_DEBUG 1
+#define EMG_SERIAL_DEBUG 0
 #endif
 #endif

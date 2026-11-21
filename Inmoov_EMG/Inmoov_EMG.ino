@@ -6,7 +6,8 @@
  * Bibliotecas: Servo; EEPROM incluida en Arduino AVR Boards.
  * Generado con python scripts/export_ino.py desde los modulos .h/.cpp de Inmoov_EMG/.
  * Toda la configuracion esta incluida abajo; no requiere archivos del proyecto.
- * Monitor Serie a 115200: enviar ? y comprobar SERVO_REVERSE_MASK,28.
+ * Uso normal sin UART. Para depuracion: definir EMG_SERIAL_DEBUG=1 antes de Config.h.
+ * Solo en depuracion, Monitor Serie a 115200: ? consulta estado; p activa telemetria.
  * Los .cpp de esta carpeta se reservan para pruebas nativas, evitando duplicados.
  */
 #include <Arduino.h>
@@ -102,9 +103,10 @@ static_assert(SAMPLE_QUEUE_CAPACITY > 1, "Cola insuficiente");
 #define EMG_SAMPLE_PROBE 1
 #endif
 
-// UART de diagnostico, nunca es una entrada Bluetooth.
+// Uso normal sin UART: el enlace del UNO no ofrece cifrado ni autenticacion.
+// Solo para depuracion: compilar con -DEMG_SERIAL_DEBUG=1 o definirlo antes de Config.h.
 #ifndef EMG_SERIAL_DEBUG
-#define EMG_SERIAL_DEBUG 1
+#define EMG_SERIAL_DEBUG 0
 #endif
 #endif
 
@@ -769,6 +771,11 @@ void Hand::Application::tick(uint32_t now) {
 
 namespace {
 uint32_t droppedLines = 0;
+// En depuracion, el flujo periodico arranca apagado; solo el comando p lo
+// activa/desactiva. Los eventos puntuales E no dependen de este interruptor.
+// D: ms, ADC crudo, base DC, envolvente, fronteras abrir/cerrar (5/10 en FW8),
+// bits de falla, overruns de adquisicion y lineas UART descartadas.
+// E: ms, nombre del evento y valor (estado, falla o dato auxiliar de control).
 bool plotEnabled = false;
 uint8_t pendingStatus = 0;
 #if EMG_SERIAL_DEBUG

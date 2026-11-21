@@ -41,6 +41,11 @@ int main() {
          testGpio().modeCalls[Config::MODE_PIN] > 0);
   result("DRV-FREE","D7/D12/D13 libres durante inicio y movimiento","sin pinMode ni digitalWrite en los tres pines",true);
   Diagnostics::begin(); assert(Serial.baud == Config::SERIAL_BAUD);
+  Diagnostics::Sample sample;
+  const auto startupWrites = Serial.writes;
+  Diagnostics::plot(100, sample, {5, 10});
+  Diagnostics::update(200, {false, 0, 0});
+  result("UART-OFF", "telemetria periodica apagada al arrancar", "sin D ni eventos auxiliares antes de p", Serial.writes == startupWrites);
   Serial.capacity = 0; const auto before = Diagnostics::dropped();
   Diagnostics::event("TEST", 1, 2);
   result("UART-F1", "UART llena descarta linea sin llamar write", "una linea descartada y cero escrituras", Diagnostics::dropped() == before + 1 && Serial.writes == 0);
@@ -55,7 +60,9 @@ int main() {
   Serial.pending = true; Serial.input = '!';
   assert(Diagnostics::command() == Diagnostics::Command::None);
   result("UART-F3", "read=-1 y comando invalido no generan orden", "ambos rechazados; c reactiva control fijo", Diagnostics::dropped() == before + 4);
-  Diagnostics::togglePlot(); Diagnostics::Sample sample;
+  Serial.pending = true; Serial.input = 'p';
+  assert(Diagnostics::command() == Diagnostics::Command::TogglePlot);
+  Diagnostics::togglePlot();
   sample.raw = 338; sample.baseline = 338;
   Diagnostics::plot(100, sample, {20, 40});
   result("UART-01", "linea de datos completa al recuperar capacidad", Serial.last.substr(0, Serial.last.size() - 1), Serial.last.find("D,100,338,338,") == 0);
@@ -73,4 +80,10 @@ int main() {
   result("UART-REVERSE","consulta identifica los tres servos invertidos","SERVO_REVERSE_MASK=28",Serial.last.find("E,112,SERVO_REVERSE_MASK,28")==0);
   Diagnostics::plot(400,sample,{8,12}); Diagnostics::update(400,state);
   result("UART-MEAN", "D seguido de promedio en decimas", Serial.last.substr(0,Serial.last.size()-1), Serial.last.find("E,400,MEAN_X10,64")==0);
+  Serial.pending = true; Serial.input = 'p';
+  assert(Diagnostics::command() == Diagnostics::Command::TogglePlot);
+  Diagnostics::togglePlot();
+  const auto stoppedWrites = Serial.writes;
+  Diagnostics::plot(600, sample, {5, 10}); Diagnostics::update(600, state);
+  result("UART-STOP", "p vuelve a apagar telemetria periodica", "sin nuevas lineas D ni auxiliares", Serial.writes == stoppedWrites);
 }

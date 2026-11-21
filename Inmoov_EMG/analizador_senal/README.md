@@ -2,6 +2,8 @@
 
 Ejecuta `iniciar.bat` o `python analizador.py --port COM3`. Usa Python 3.10+ con Tk, pyserial, matplotlib y cryptography (`python -m pip install -r requirements.txt`). Cierra el monitor serie antes de iniciar.
 
+La captura USB requiere cargar la variante **depuracion** (`EMG_SERIAL_DEBUG=1`); la versión normal no inicia ni emite por UART. Desde la raíz del repo, `python scripts/build.py` genera `build/normal` y `build/depuracion`; carga esta última siguiendo [las instrucciones del firmware](../../README.md#carga-y-primera-prueba). En Arduino IDE, añade `#define EMG_SERIAL_DEBUG 1` al principio del `.ino`, antes de `Config.h`, y sube. La UART del UNO no ofrece cifrado ni autenticación; vuelve a cargar la versión normal al terminar la depuración. El cifrado de archivos del analizador protege el almacenamiento, no este enlace.
+
 FW8 controla sin calibracion. El promedio de 200 muestras de envolvente (~200 ms) ordena 0 grados si es menor que 5, 90 si es desde 5 y menor que 10, y 180 si es desde 10. Los cinco dedos se mueven juntos con rampa.
 
 Iniciar solicita consentimiento y contraseña antes de grabar señal y eventos; Detener cierra el registro, genera resumen y manifiesto, pero no detiene motores. No se genera PNG automáticamente: Exportar gráfica requiere aceptar una copia sin cifrar en la ruta elegida. Pausar / abrir envia `x`; Activar control envia `c` y reanuda. La pantalla muestra el promedio y el objetivo ordenado. Los botones de control se habilitan al recibir `E,...,FW,8` durante una captura USB. Solo se admite control FW8, sin secuencia de calibracion.

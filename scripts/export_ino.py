@@ -42,7 +42,8 @@ void loop() { application.tick(millis()); }
  * Bibliotecas: Servo; EEPROM incluida en Arduino AVR Boards.
  * Generado con python scripts/export_ino.py desde los modulos .h/.cpp de Inmoov_EMG/.
  * Toda la configuracion esta incluida abajo; no requiere archivos del proyecto.
- * Monitor Serie a 115200: enviar ? y comprobar SERVO_REVERSE_MASK,28.
+ * Uso normal sin UART. Para depuracion: definir EMG_SERIAL_DEBUG=1 antes de Config.h.
+ * Solo en depuracion, Monitor Serie a 115200: ? consulta estado; p activa telemetria.
  * Los .cpp de esta carpeta se reservan para pruebas nativas, evitando duplicados.
  */
 #include <Arduino.h>

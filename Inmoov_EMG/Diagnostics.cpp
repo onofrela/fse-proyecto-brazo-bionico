@@ -5,6 +5,11 @@
 #include "Diagnostics.h"
 namespace {
 uint32_t droppedLines = 0;
+// En depuracion, el flujo periodico arranca apagado; solo el comando p lo
+// activa/desactiva. Los eventos puntuales E no dependen de este interruptor.
+// D: ms, ADC crudo, base DC, envolvente, fronteras abrir/cerrar (5/10 en FW8),
+// bits de falla, overruns de adquisicion y lineas UART descartadas.
+// E: ms, nombre del evento y valor (estado, falla o dato auxiliar de control).
 bool plotEnabled = false;
 uint8_t pendingStatus = 0;
 #if EMG_SERIAL_DEBUG
