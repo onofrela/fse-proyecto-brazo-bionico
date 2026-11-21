@@ -1,3 +1,19 @@
 /build/
 /tmp/
 __pycache__/
+
+# Capturas biometricas locales; no deben publicarse.
+registros/
+docs/mediciones/
+senal.csv
+eventos.csv
+resumen.json
+analisis.json
+grafica.png
+analisis_*.png
+envolvente_*.png
+comparacion_bloques.png
+bloques_estimados.csv
+
+# CSV de prueba versionable: generado sin datos de personas.
+!tests/datos/senal_sintetica.csv

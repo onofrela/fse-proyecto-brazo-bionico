@@ -1,6 +1,5 @@
 # Los scripts Bash necesitan LF incluso al clonar con core.autocrlf en Windows.
 *.sh text eol=lf
 *.py text eol=lf
-# La evidencia conserva sus bytes originales, incluidos BOM y finales de linea.
-docs/mediciones/**/*.csv -text whitespace=cr-at-eol
-docs/mediciones/**/*.json -text whitespace=cr-at-eol
+# El dato sintetico y su hash usan bytes reproducibles en cualquier plataforma.
+tests/datos/*.csv text eol=lf

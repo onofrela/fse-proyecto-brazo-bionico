@@ -56,6 +56,6 @@ Este documento registra el problema y el plan de investigación. No documenta re
 
 ## Hallazgo de software en el ensayo de 30 segundos
 
-El [nuevo ensayo](mediciones/2026-11-09/ensayo_mano_30s/README.md) mostraba pérdidas y reinicios continuos del filtro sin incrementos de desbordamiento. Se reprodujo un error de edad al recibir una muestra desde la ISR después de tomar la hora del bucle. La resta sin signo interpretaba esa diferencia negativa como una antigüedad enorme. Se corrigió con una comparación firmada para ventanas cortas y se verificó que las muestras realmente antiguas siguen rechazándose.
+El ensayo previo de 30 segundos mostraba pérdidas y reinicios continuos del filtro sin incrementos de desbordamiento. Sus capturas reales ya no se versionan por tratarse de datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Se reprodujo un error de edad al recibir una muestra desde la ISR después de tomar la hora del bucle. La resta sin signo interpretaba esa diferencia negativa como una antigüedad enorme. Se corrigió con una comparación firmada para ventanas cortas y se verificó que las muestras realmente antiguas siguen rechazándose.
 
 Este hallazgo explica un fallo de software comprobado. No determina el estado de las soldaduras, jumpers o módulo, ni confirma que toda variación física esté resuelta. La investigación del montaje continúa abierta.

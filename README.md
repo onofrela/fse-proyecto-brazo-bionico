@@ -6,7 +6,9 @@ La implementación conserva la plataforma y los pines de actuadores del proyecto
 
 La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
-Versión actual: **FW8**, entrega final con control fijo por tres niveles, sin calibración. Se etiquetará **v1.0.0** al terminar la rama `limpieza-fw8`. [Mediciones reales](docs/mediciones/2026-11-09/README.md) · [Control por promedios](docs/control-senal.md).
+Versión actual: **FW8**, entrega final con control fijo por tres niveles, sin calibración. Se etiquetará **v1.0.0** al terminar la rama `limpieza-fw8`. [Control por promedios](docs/control-senal.md) · [Datos sintéticos de prueba](tests/datos/README.md).
+
+Las capturas reales del AD8232 ya no se versionan porque contienen datos biométricos/de salud. Sus resultados se resumen en el informe del Avance 4. Se retiran del árbol actual sin reescribir el historial público; las revisiones anteriores aún las contienen. Guarda las sesiones nuevas en `registros/`, ignorado por Git.
 
 ## Estado actual del sensor
 
@@ -167,7 +169,7 @@ python scripts/build.py
 python scripts/build.py --no-debug --no-probe
 ```
 
-`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`, y compila su carpeta. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Verifica evidencia con `python scripts/verificar_mediciones.py --git-ref HEAD`. En Bash también puede usarse `bash scripts/verify.sh`.
+`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`, y compila su carpeta. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Para verificar sin actualizar el informe histórico usa `python scripts/test.py --report build/resultados-pruebas.md`. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); se retiró el verificador de capturas reales. En Bash también puede usarse `bash scripts/verify.sh`.
 
 Para cargar: Arduino IDE → abrir `Inmoov_EMG/Inmoov_EMG.ino` → Arduino Uno → puerto de la placa → Subir. O, después de compilar con CLI:
 
@@ -182,4 +184,4 @@ Resultados y límites de validación están en [la tabla de pruebas](docs/result
 
 ## Historial de versiones
 
-La base modular recibida es `a37d208`. Los cambios posteriores se separan en mediciones, filtro, señal, calibración, decisión, telemetría, integridad de evidencia y consolidación de `v0.6.0`. Todo permanece en main; las etiquetas y fechas se detallan en [versiones](docs/versiones.md). Las capturas y sus CSV conservan sus hashes originales.
+La base modular recibida es `a37d208`. Los cambios posteriores se separan en mediciones, filtro, señal, calibración, decisión, telemetría, integridad de evidencia y consolidación de `v0.6.0`. Las etiquetas y fechas se detallan en [versiones](docs/versiones.md). Las capturas y sus hashes pertenecen al historial anterior; ya no se versionan datos biométricos en el árbol actual. Sus resultados se resumen en el informe del Avance 4.

@@ -23,3 +23,8 @@ El control fijo esta activo al arrancar. `x` pausa y abre; `c` reactiva el contr
 El analizador muestra promedio y objetivo, desactiva la secuencia de calibracion en FW8 y cambia el boton a Activar control. `MEAN_X10` registra la media en decimas, `TARGET_DEG` registra el destino y `CONTROL_PAUSED` informa pausa. Se conservan las tramas D y la lectura de CSV anteriores; los campos de umbrales muestran las fronteras fijas 5/10.
 
 Los limites fijos son una simplificacion solicitada para probar el montaje. La variabilidad fisica del sensor sigue [en investigacion](diagnostico-sensor.md). Promediar reduce el efecto de fluctuaciones breves; no demuestra que todo ruido ambiental o cardiaco haya sido eliminado.
+
+Las capturas reales que motivaron estos limites ya no se versionan por tratarse
+de datos biometricos/de salud. Sus resultados se resumen en el informe del
+Avance 4; no se reescribe el historial. Las pruebas usan el [CSV sintetico](../tests/datos/README.md),
+que no reproduce una persona ni demuestra el comportamiento fisico del sensor.

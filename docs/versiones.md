@@ -17,6 +17,6 @@ La entrega final es **FW8**, con control fijo por tres niveles y sin calibració
 
 Para recorrer la serie histórica: `git log --reverse --oneline a37d208..v0.6.0`. Para comparar la base modular y el cierre de esa serie: `git diff a37d208..v0.6.0`. Las etiquetas son anotadas y permanecen locales, sin publicar.
 
-La normalización de texto de Git se desactiva para los CSV y JSON de evidencia, preservando BOM y finales de línea. Comprueba los blobs de la revisión final con `python scripts/verificar_mediciones.py --git-ref HEAD`.
+En esas revisiones se desactivó la normalización de los CSV y JSON de evidencia para preservar sus bytes. Las capturas reales ya no se versionan en el árbol actual por contener datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Se retiran aquellas reglas y el verificador de mediciones, sin reescribir el historial. `python scripts/test.py --report build/resultados-pruebas.md` verifica ahora el manifiesto del [dato sintético](../tests/datos/README.md).
 
 El estado del módulo del sensor y las hipótesis por comprobar se describen en [diagnóstico del sensor](diagnostico-sensor.md). La revisión no se considera validada físicamente mientras persista la inestabilidad.

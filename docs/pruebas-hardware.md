@@ -1,6 +1,6 @@
 # Protocolo de demostración y medición física
 
-Hay capturas previas del sensor en [mediciones](mediciones/2026-11-09/README.md). La validación física de v0.6.0 con placa, batería y mano sigue pendiente. Completar los resultados con capturas, sin copiar los números de simulación como mediciones reales. Registrar fecha, autor, etiqueta/commit, equipo, versión de dependencias, ajustes de `Config.h`, batería, carga y archivos de evidencia.
+Las capturas reales previas del sensor ya no se versionan por tratarse de datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Guarda las sesiones y sus archivos en `registros/`, ignorado por Git, fuera de la evidencia pública. La validación física de v0.6.0 con placa, batería y mano sigue pendiente. Completar los resultados sin copiar los números de simulación como mediciones reales. Registrar fecha, autor, etiqueta/commit, equipo, versión de dependencias, ajustes de `Config.h`, batería, carga y referencias locales de evidencia.
 
 ## Diagnóstico previo de la señal
 
@@ -38,7 +38,7 @@ La prueba F2-SW de la tabla automatizada significa “ADC sin muestras”; no es
 
 ## Material para entregar
 
-Preparar un informe técnico con cableado, configuración, diagrama y resultados físicos. Adjuntar la etiqueta o commit evaluado, logs, capturas originales y registros de prueba con fecha y autor. El código y la documentación Markdown se complementan con las mediciones y la demostración del montaje.
+Preparar un informe técnico con cableado, configuración, diagrama y resultados físicos. Adjuntar la etiqueta o commit evaluado y resultados resumidos con fecha y autor; conservar logs, capturas originales y registros biométricos fuera del repositorio público. El código y la documentación Markdown se complementan con las mediciones y la demostración del montaje.
 
 ## Archivos de apoyo del equipo
 

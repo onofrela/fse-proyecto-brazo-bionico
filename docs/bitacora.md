@@ -14,6 +14,12 @@ El costo aceptado es la latencia: a 1 kHz, cada bloque de 200 muestras represent
 
 Las decisiones y cifras de las secciones siguientes documentan etapas anteriores; las referencias a calibración y control ponderado son históricas.
 
+## Retiro de capturas biométricas del repositorio público
+
+Las capturas reales del AD8232 son datos biométricos/de salud. Por decisión del equipo se elimina todo `docs/mediciones/` del árbol actual, sin reescribir el historial: las revisiones anteriores siguen conteniendo esos datos. Sus resultados se resumen en el informe del Avance 4. Las nuevas sesiones deben conservarse en `registros/`, ignorado por Git; también se ignoran las rutas anteriores y los nombres de CSV/JSON/PNG que produce el analizador.
+
+Las pruebas usan ahora `tests/datos/senal_sintetica.csv`: 60 filas generadas por una fórmula determinista, sin capturas como entrada. REPLAY-30S ejercita decisión y rampa con retención artificial durante 30 s simulados; PC-DATOS verifica la lectura de las 22 columnas. EVIDENCIA se conserva para comprobar el origen sintético, filas, columnas, periodo y SHA256 del manifiesto. Se elimina `scripts/verificar_mediciones.py` porque su verificación de originales ya no tiene entradas versionadas. Ninguno de estos casos representa una medición física ni acredita R1 o R6. `docs/resultados-pruebas.md` conserva su ejecución histórica hasta el paso 12.
+
 ## Decisiones de modularización anteriores
 
 | Decisión y evidencia en código | Planeado / base | Construido y motivo |
@@ -70,7 +76,7 @@ El historial de `main` separa los cambios por responsabilidad. Los sketches exis
 | D07: SignalFilter separado | HP30, rechazo 60 Hz y LP200; enteros Q12/Q6; respuesta sintética y reset probados. Sin validación de eliminación completa de ECG en placa |
 | D08: Calibración explícita y robusta | Las capturas iniciales muestran desajuste de ventanas. Se guía 3/6/3/10 s, con histogramas y diagnóstico; Storage conserva su transacción incremental |
 | D09: Mano completa ponderada | Las amplitudes por dedo se superponen. Se usa actividad/reposo con suavizado, cierre mínimo de 900 ms y apertura prioritaria por falla |
-| D10: Evidencia original separada | Dos CSV reales, eventos, gráficas y capturas con SHA256. Los replays y dobles se identifican como simulación; no se afirma validación física del firmware nuevo |
+| D10: Evidencia original separada (histórica) | Se conservaron CSV reales, eventos, gráficas y capturas con SHA256. Ya no se versionan por ser datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Los replays actuales usan datos sintéticos y no validan físicamente el firmware |
 
 La ponderación de un replay de envolventes llega al recorrido ordenado completo. No mide fuerza, movimiento físico, consumo ni la respuesta real del filtro analógico. Las nuevas funciones requieren cargar el firmware y recalibrar con firma 0xE706.
 

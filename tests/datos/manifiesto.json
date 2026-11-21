@@ -1,0 +1,31 @@
+{
+  "tipo": "sintetico",
+  "archivo": "senal_sintetica.csv",
+  "filas": 60,
+  "paso_ms": 500,
+  "columnas": [
+    "host_utc",
+    "session",
+    "device_ms",
+    "time_s",
+    "raw_adc",
+    "baseline_adc",
+    "envelope_adc",
+    "threshold_open_adc",
+    "threshold_close_adc",
+    "flags",
+    "adc_overruns",
+    "dropped_logs",
+    "adc_reference_v",
+    "raw_v",
+    "baseline_v",
+    "envelope_v",
+    "leads_off",
+    "clipped",
+    "not_ready",
+    "stale",
+    "data_loss",
+    "hardware_fault"
+  ],
+  "sha256": "00665c39c92c922943715f4c69995cd4ee1c65fde9dd10750506b560df5883e6"
+}

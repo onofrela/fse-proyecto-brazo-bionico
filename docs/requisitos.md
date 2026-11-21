@@ -35,14 +35,14 @@ Esta matriz evalúa los requisitos del proyecto sobre la base Arduino disponible
 
 ## Compilación verificada
 
-Se conservan las dependencias fijadas: Arduino AVR 1.8.6 y Servo 1.2.2. Se compiló con advertencias completas; sólo aparecen parámetros no utilizados del core Arduino. Las pruebas nativas usan C++14, aserciones y advertencias como errores. Las pruebas del analizador y los hashes se incluyen en scripts/test.py.
+Se conservan las dependencias fijadas: Arduino AVR 1.8.6 y Servo 1.2.2. Se compiló con advertencias completas; sólo aparecen parámetros no utilizados del core Arduino. Las pruebas nativas usan C++14, aserciones y advertencias como errores. Las pruebas del analizador y el manifiesto del dato sintético se incluyen en scripts/test.py. La tabla de resultados automatizados conserva la ejecución histórica hasta su regeneración en el paso 12; sus referencias a capturas reales no describen las entradas actuales.
 
 | Variante | Flash | SRAM global | Remanente para pila/temporales |
 | --- | --- | --- | --- |
 | Normal, UART y D2 | 14720 / 32256 B | 1379 / 2048 B | 669 B |
 | Sin UART ni D2 | 10024 / 32256 B | 806 / 2048 B | 1242 B |
 
-Los logs permanecen en build/, ignorados por Git. Ese remanente no es una medición del máximo de pila ni de consumo eléctrico. No se cargó esta revisión ni se accionaron servos durante la integración. La evidencia real previa se conserva en mediciones/2026-11-09; no valida por sí sola el procesamiento posterior.
+Los logs permanecen en build/, ignorados por Git. Ese remanente no es una medición del máximo de pila ni de consumo eléctrico. No se cargó esta revisión ni se accionaron servos durante la integración. Las capturas reales previas ya no se versionan por tratarse de datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4 y no validan por sí solos el procesamiento posterior. Las pruebas actuales usan el [dato sintético](../tests/datos/README.md).
 
 ## Incidencia abierta del sensor
 
