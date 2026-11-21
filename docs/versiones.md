@@ -2,7 +2,11 @@
 
 La base modular recibida mediante pull es a37d208, conservada sin reescribir. La serie histórica siguiente añade evidencia, filtrado, calibración, decisión y telemetría. Las etiquetas ya fueron creadas localmente; sus commits se verificaron con `git cat-file -t` y corresponden a la tabla.
 
-La entrega final es **FW8**, con control fijo por tres niveles y sin calibración, en la rama `limpieza-fw8`. Se etiquetará **v1.0.0** al terminar la rama, en el paso 12. La versión `v0.6.2` citada anteriormente no existe.
+La entrega final es **FW8**, con control fijo por tres niveles y sin calibración, en la rama `limpieza-fw8`. La versión de entrega prevista es **v1.0.0**. El orquestador debe crear la etiqueta anotada local en `HEAD` después del commit final del paso 12, sin publicarla. Este paso deja `build/commit-msg.txt` preparado; el sandbox no permite escribir en `.git`, por lo que el commit y la etiqueta siguen pendientes. La versión `v0.6.2` citada anteriormente no existe.
+
+FW8 clasifica el promedio de 200 envolventes a 1 kHz con fronteras 5 y 10 y destinos 0°/90°/180°. Se retiraron calibración, control ponderado, persistencia de umbrales y LED RGB. EEPROM solo conserva el contador de arranque verificado. El montaje usa 2×18650 en serie y buck a 5 V; D7/D12/D13 quedan libres. El firmware mantiene el identificador de protocolo `FW=8`; `v1.0.0` identifica la entrega del repositorio.
+
+Las variantes `normal` (sin UART) y `depuracion` (UART habilitada, telemetría periódica apagada hasta `p`) se compilaron el 2026-11-21 con AVR 1.8.6 y Servo 1.2.2, ambas con D2 habilitado. Usan respectivamente 7128/11404 B de Flash y 508/1002 B de SRAM global. `python scripts/test.py` regeneró [los resultados](resultados-pruebas.md): 44 casos reportados y 30 pruebas Python sin fallos. LAT-FW8 obtuvo 161–360 ms para amplitud 12 ADC y 58–257 ms para 40 ADC hasta el primer destino/paso escrito en simulación. **R1 (≤50 ms) no cumple por diseño**; la validación física sigue pendiente. D11 documenta el motivo y el costo en [la bitácora](bitacora.md#retiro-de-calibración-y-control-ponderado-en-fw8).
 
 | Etiqueta | Commit | Fecha | Alcance |
 | --- | --- | --- | --- |
@@ -17,6 +21,6 @@ La entrega final es **FW8**, con control fijo por tres niveles y sin calibració
 
 Para recorrer la serie histórica: `git log --reverse --oneline a37d208..v0.6.0`. Para comparar la base modular y el cierre de esa serie: `git diff a37d208..v0.6.0`. Las etiquetas son anotadas y permanecen locales, sin publicar.
 
-En esas revisiones se desactivó la normalización de los CSV y JSON de evidencia para preservar sus bytes. Las capturas reales ya no se versionan en el árbol actual por contener datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Se retiran aquellas reglas y el verificador de mediciones, sin reescribir el historial. `python scripts/test.py --report build/resultados-pruebas.md` verifica ahora el manifiesto del [dato sintético](../tests/datos/README.md).
+En esas revisiones se desactivó la normalización de los CSV y JSON de evidencia para preservar sus bytes. Las capturas reales ya no se versionan en el árbol actual por contener datos biométricos/de salud; sus resultados se resumen en el informe del Avance 4. Se retiraron aquellas reglas y el verificador de mediciones, sin reescribir el historial: las revisiones antiguas aún contienen las capturas. El analizador guarda nuevas sesiones fuera del repositorio, con consentimiento, cifrado por defecto e integridad autenticada. `python scripts/test.py` verifica el manifiesto del [dato sintético](../tests/datos/README.md) y regenera el informe actual sin capturas reales.
 
 El estado del módulo del sensor y las hipótesis por comprobar se describen en [diagnóstico del sensor](diagnostico-sensor.md). La revisión no se considera validada físicamente mientras persista la inestabilidad.
