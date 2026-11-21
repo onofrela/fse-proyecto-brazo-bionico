@@ -4,26 +4,30 @@ from __future__ import annotations
 import argparse
 import json
 import queue
+import sys
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
+
+from privacidad import (DEFAULT_OUTPUT, MANIFEST, ask_passphrase, decrypt_file,
+                        is_encrypted, notice, offer_cleanup, verify_directory)
 
 from senal import (Recorder, Sample, demo_lines, draw_plot, make_figure,
                    read_csv, save_plot, serial_lines, status_text, summarize)
 
-HERE = Path(__file__).resolve().parent
 CONTROL_FIRMWARE = 8
 
 
 def new_directory(base):
-    return Path(base) / datetime.now().strftime("registro_%Y%m%d_%H%M%S_%f")
+    return Path(base) / ("registro_" + uuid4().hex)
 
 
 def acquire(directory, stop, *, demo=False, port=None, seconds=0, reference=5.0,
-            commands=None,
+            commands=None, passphrase, encrypted=True, include_time=False,
             notify=lambda kind, payload: None):
-    recorder = Recorder(directory, reference, "demo_sintetica" if demo else f"serial:{port}")
+    recorder = Recorder(directory, reference, "demo_sintetica" if demo else "serial",
+                        passphrase=passphrase, encrypted=encrypted, include_time=include_time)
     start = time.monotonic()
     source = demo_lines(seconds if seconds else 86400) if demo else serial_lines(port, stop, commands=commands)
     deadline = threading.Timer(seconds, stop.set) if seconds and not demo else None
@@ -42,14 +46,16 @@ def acquire(directory, stop, *, demo=False, port=None, seconds=0, reference=5.0,
     finally:
         if deadline:
             deadline.cancel()
-        source.close()
-        recorder.close()
+        try:
+            source.close()
+        finally:
+            recorder.close()
     return recorder.samples
 
 
 def run_gui(args):
     import tkinter as tk
-    from tkinter import filedialog, messagebox, ttk
+    from tkinter import filedialog, messagebox, simpledialog, ttk
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
     from serial.tools import list_ports
 
@@ -82,7 +88,7 @@ def run_gui(args):
             self.reference = tk.StringVar(value=str(args.reference))
             self.status = tk.StringVar(value="Elige Sensor USB o Demo y pulsa Iniciar.")
             self.metrics = tk.StringVar(value="Sin muestras")
-            self.path_label = tk.StringVar(value="Los registros se guardan automáticamente al iniciar.")
+            self.path_label = tk.StringVar(value="Se solicitará consentimiento antes de guardar cada sesión.")
             wrapper = ttk.Frame(root, padding=12)
             wrapper.pack(fill="both", expand=True)
             ttk.Label(wrapper, text="InMoov · Control de mano completa", font=("Segoe UI", 18, "bold")).pack(anchor="w")
@@ -99,7 +105,7 @@ def run_gui(args):
             ttk.Label(controls, text="Referencia ADC (V):").pack(side="left", padx=(12, 4))
             self.reference_box = ttk.Entry(controls, textvariable=self.reference, width=6)
             self.reference_box.pack(side="left")
-            self.start_button = ttk.Button(controls, text="Iniciar / grabar CSV", command=self.start)
+            self.start_button = ttk.Button(controls, text="Iniciar / grabar", command=self.start)
             self.start_button.pack(side="left", padx=(12, 5))
             self.stop_button = ttk.Button(controls, text="Detener", command=self.stop.set, state="disabled")
             self.stop_button.pack(side="left")
@@ -204,13 +210,24 @@ def run_gui(args):
             if not demo and not port:
                 messagebox.showerror("Puerto", "Selecciona un puerto COM o elige Demo sintética.")
                 return
+            directory = new_directory(args.output)
+            if not messagebox.askyesno("Consentimiento de registro", notice(
+                    directory, encrypted=not args.sin_cifrar, include_time=args.incluir_hora)
+                    + "\n¿Aceptas guardar esta sesión?", default="no"):
+                return
+            try:
+                passphrase = ask_passphrase(new=True, dialog=lambda prompt: simpledialog.askstring(
+                    "Contraseña de sesión", prompt, show="*", parent=self.root))
+            except ValueError as exc:
+                messagebox.showerror("Contraseña", str(exc))
+                return
             self.samples = []
             self.commands = queue.Queue()
             self.firmware_version = 0
             self.capture_started = time.monotonic()
             self.activity_status.set("Promedio: — · Objetivo: —")
             self.prompt = "Consultando versión del firmware…" if not demo else "Demo sintética: los controles de actuadores están deshabilitados."
-            self.directory = new_directory(args.output)
+            self.directory = directory
             self.stop.clear()
             self.set_running(True)
             self.dirty = True
@@ -223,6 +240,8 @@ def run_gui(args):
                 try:
                     acquire(self.directory, self.stop, demo=demo, port=port, reference=reference,
                             commands=self.commands,
+                            passphrase=passphrase, encrypted=not args.sin_cifrar,
+                            include_time=args.incluir_hora,
                             notify=lambda kind, payload: self.messages.put((kind, payload)))
                 except Exception as exc:
                     error = str(exc)
@@ -234,7 +253,11 @@ def run_gui(args):
 
         def load(self, path):
             try:
-                samples = read_csv(path)
+                passphrase = None
+                if is_encrypted(path) or (Path(path).parent / MANIFEST).exists():
+                    passphrase = ask_passphrase(dialog=lambda prompt: simpledialog.askstring(
+                        "Abrir registro", prompt, show="*", parent=self.root))
+                samples = read_csv(path, passphrase)
             except (OSError, ValueError) as exc:
                 messagebox.showerror("No se pudo abrir", str(exc))
                 return
@@ -256,7 +279,7 @@ def run_gui(args):
                 messagebox.showinfo("Sin datos", "Inicia una captura o abre un CSV primero.")
                 return
             path = filedialog.asksaveasfilename(title="Guardar gráfica", defaultextension=".png", initialfile="grafica.png", filetypes=[("Imagen PNG", "*.png")])
-            if path:
+            if path and messagebox.askyesno("Exportar datos biométricos", f"La gráfica quedará SIN CIFRAR en:\n{path}\n¿Aceptas guardarla?", default="no"):
                 try:
                     save_plot(list(self.samples), path, self.plot_title())
                     self.write_log("Gráfica exportada: " + path)
@@ -293,12 +316,8 @@ def run_gui(args):
                         self.set_running(False)
                         self.status.set("Captura terminada" if payload is None else "Captura detenida: " + payload)
                         self.write_log(self.status.get())
-                        if self.samples:
-                            try:
-                                save_plot(self.samples, self.directory / "grafica.png", self.plot_title())
-                                self.write_log("Guardados senal.csv, eventos.csv, resumen.json y grafica.png.")
-                            except OSError as exc:
-                                self.write_log("CSV conservado; no se pudo guardar PNG: " + str(exc))
+                        if payload is None:
+                            self.write_log("Guardados senal.csv, eventos.csv, resumen.json y manifiesto.hmac.json. PNG sólo por exportación explícita.")
                         if payload and not self.closing:
                             messagebox.showerror("Captura", payload)
                         self.dirty = True
@@ -325,8 +344,22 @@ def run_gui(args):
             self.status.set("Terminando registro y guardando…")
 
     root = tk.Tk()
+    offer_cleanup(args.output,
+                  lambda text: messagebox.askyesno("Borrar registros antiguos", text, default="no"),
+                  lambda text: messagebox.showinfo("Registros antiguos", text))
     App(root)
     root.mainloop()
+
+
+def confirm_cli(text):
+    print(text, file=sys.stderr)
+    if not sys.stdin.isatty():
+        print("Para ofrecer confirmación de borrado, inicia el analizador en una terminal interactiva.", file=sys.stderr)
+        return False
+    try:
+        return input("Escribe BORRAR para confirmar: ") == "BORRAR"
+    except EOFError:
+        return False
 
 
 def main():
@@ -335,50 +368,65 @@ def main():
     parser.add_argument("--demo", action="store_true", help="Datos sintéticos (CLI)")
     parser.add_argument("--headless", action="store_true", help="Captura sin ventana; Ctrl+C para terminar")
     parser.add_argument("--seconds", type=float, default=0, help="Duración CLI; 0 = hasta Ctrl+C (demo: 20 s por defecto)")
-    parser.add_argument("--csv", type=Path, help="Abrir un senal.csv existente; con --headless genera PNG y resumen")
+    parser.add_argument("--csv", type=Path, help="Abrir senal.csv; con --headless muestra estadísticas sin guardar copias")
     parser.add_argument("--reference", type=float, default=5.0, help="Referencia ADC AVcc en voltios, igual a Config.h")
-    parser.add_argument("--output", type=Path, default=HERE / "registros", help="Directorio base de salida")
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Directorio base (por defecto ~/registros-emg)")
+    parser.add_argument("--acepto-guardar", action="store_true", help="Consentimiento explícito obligatorio en captura headless")
+    parser.add_argument("--sin-cifrar", action="store_true", help="ADVERTENCIA: guardar datos en claro; conserva HMAC y exige contraseña")
+    parser.add_argument("--incluir-hora", action="store_true", help="Incluir host_utc en señal y eventos")
+    commands = parser.add_mutually_exclusive_group()
+    commands.add_argument("--descifrar", type=Path, metavar="ARCHIVO", help="Verificar sesión y emitir archivo descifrado por stdout")
+    commands.add_argument("--verificar", type=Path, metavar="CARPETA", help="Validar manifiesto HMAC y los tres archivos")
     args = parser.parse_args()
     if not 0 < args.reference <= 10 or not 0 <= args.seconds < 86400:
         parser.error("Referencia fuera de rango o duración inválida (0 a <86400 s).")
+    if args.descifrar or args.verificar:
+        passphrase = ask_passphrase()
+        directory = args.verificar or args.descifrar.parent
+        verify_directory(directory, passphrase)
+        if args.descifrar:
+            data = decrypt_file(args.descifrar, passphrase)
+            sys.stdout.buffer.write(data)
+        else:
+            print("Integridad autenticada correcta:", directory)
+        return
     if not args.headless:
         run_gui(args)
         return
     if not args.csv and not args.demo and not args.port:
         parser.error("Usa --port COM3, --demo o --csv senal.csv.")
+    offer_cleanup(args.output, confirm_cli, lambda text: print(text, file=sys.stderr))
     if args.csv:
-        samples = read_csv(args.csv)
-        target = new_directory(args.output)
-        target.mkdir(parents=True)
-        (target / "resumen.json").write_text(json.dumps(summarize(samples), indent=2, ensure_ascii=False), encoding="utf-8")
+        passphrase = ask_passphrase() if is_encrypted(args.csv) or (args.csv.parent / MANIFEST).exists() else None
+        samples = read_csv(args.csv, passphrase)
     else:
         target = new_directory(args.output)
-        print("Guardando en:", target, flush=True)
+        print(notice(target, encrypted=not args.sin_cifrar, include_time=args.incluir_hora), file=sys.stderr, flush=True)
+        if not args.acepto_guardar:
+            parser.error("Antes de grabar en --headless debes indicar --acepto-guardar.")
+        passphrase = ask_passphrase(new=True)
         stop = threading.Event()
         try:
             acquire(target, stop, demo=args.demo, port=args.port,
-                    seconds=args.seconds or (20 if args.demo else 0), reference=args.reference)
+                    seconds=args.seconds or (20 if args.demo else 0), reference=args.reference,
+                    passphrase=passphrase, encrypted=not args.sin_cifrar, include_time=args.incluir_hora)
         except KeyboardInterrupt:
             print("Captura detenida por el usuario.")
         except Exception as exc:
-            print("Captura detenida:", exc)
-            # Si hubo datos antes de la desconexión, también genera la gráfica.
-            if (target / "senal.csv").exists():
-                try:
-                    samples = read_csv(target / "senal.csv")
-                    save_plot(samples, target / "grafica.png", "Captura interrumpida · AD8232")
-                except ValueError:
-                    pass
+            print("Captura detenida:", exc, file=sys.stderr)
             raise SystemExit(1) from exc
         try:
-            samples = read_csv(target / "senal.csv")
+            samples = read_csv(target / "senal.csv", passphrase)
         except ValueError:
             raise SystemExit("No se recibieron muestras. Revisa puerto, firmware y conexión.")
-    title = "DEMO · datos sintéticos · AD8232" if args.demo else "Registro AD8232 · telemetría 10 Hz"
-    save_plot(samples, target / "grafica.png", title)
     print(json.dumps(summarize(samples), indent=2, ensure_ascii=False))
-    print("Archivos:", target)
+    if not args.csv:
+        print("Archivos:", target)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError, EOFError) as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1) from error

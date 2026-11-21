@@ -33,7 +33,9 @@ class GuiControlTests(unittest.TestCase):
         stack.enter_context(patch("matplotlib.backends.backend_tkagg.NavigationToolbar2Tk"))
         stack.enter_context(patch("analizador.make_figure", return_value=(MagicMock(), [])))
         stack.enter_context(patch("serial.tools.list_ports.comports", return_value=[]))
-        run_gui(SimpleNamespace(port=None, reference=5.0, csv=None))
+        stack.enter_context(patch("analizador.offer_cleanup"))
+        run_gui(SimpleNamespace(port=None, reference=5.0, csv=None, output="unused",
+                                sin_cifrar=False, incluir_hora=False))
         self.app = root.protocol.call_args.args[1].__self__
         self.app.dirty = False
 
@@ -96,3 +98,23 @@ class GuiControlTests(unittest.TestCase):
         self.assert_controls("disabled")
         self.assertIn("Sin respuesta de versión", self.app.control_status.get())
         self.assertIn("FW8", self.app.control_status.get())
+
+    def test_recording_declined_never_starts_worker(self):
+        self.app.mode.set("Demo sintética")
+        with patch("tkinter.messagebox.askyesno", return_value=False) as consent, \
+                patch("analizador.ask_passphrase") as password, \
+                patch("analizador.threading.Thread") as worker:
+            self.app.start()
+        self.assertIn("datos biométricos", consent.call_args.args[1])
+        self.assertEqual(consent.call_args.kwargs["default"], "no")
+        password.assert_not_called()
+        worker.assert_not_called()
+
+    def test_cancelled_password_never_starts_worker(self):
+        self.app.mode.set("Demo sintética")
+        with patch("tkinter.messagebox.askyesno", return_value=True), \
+                patch("analizador.ask_passphrase", side_effect=ValueError("Cancelada")), \
+                patch("tkinter.messagebox.showerror"), \
+                patch("analizador.threading.Thread") as worker:
+            self.app.start()
+        worker.assert_not_called()

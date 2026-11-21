@@ -6,7 +6,18 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from senal import FIELDS, DeviceClock, Recorder, demo_lines, parse_line, read_csv, serial_lines, summarize
+from privacidad import MANIFEST
+
+from senal import FIELDS, DeviceClock, Recorder as SecureRecorder, demo_lines, parse_line, read_csv as read_record_csv, serial_lines, summarize
+
+
+def Recorder(*args, **kwargs):
+    # Estos casos prueban el protocolo y la compatibilidad con CSV históricos.
+    return SecureRecorder(*args, **kwargs, passphrase="prueba-sintetica", encrypted=False, include_time=True)
+
+
+def read_csv(path):
+    return read_record_csv(path, "prueba-sintetica")
 
 
 class ProtocolTests(unittest.TestCase):
@@ -41,6 +52,7 @@ class ProtocolTests(unittest.TestCase):
                 rows=list(reader)
             self.assertEqual(read_csv(path), [sample])
             fields=[key for key in rows[0] if key not in ("data_loss","hardware_fault")]
+            (path.parent / MANIFEST).unlink()
             with path.open("w",encoding="utf-8-sig",newline="") as f:
                 writer=csv.DictWriter(f,fields,extrasaction="ignore"); writer.writeheader(); writer.writerows(rows)
             self.assertEqual(read_csv(path)[0].flags,48)
@@ -104,6 +116,7 @@ class ProtocolTests(unittest.TestCase):
             recorder.accept("D,0,338,338,4,12,24,0,0,0")
             recorder.close()
             path = Path(temp) / "r" / "senal.csv"
+            (path.parent / MANIFEST).unlink()
             path.write_text(path.read_text(encoding="utf-8-sig").replace(",338,", ",NaN,", 1), encoding="utf-8-sig")
             with self.assertRaisesRegex(ValueError, "fila 2"):
                 read_csv(path)

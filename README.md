@@ -8,7 +8,11 @@ La conexión de alimentación de un EMG genérico al riel de 5 V **no correspond
 
 Versión actual: **FW8**, entrega final con control fijo por tres niveles, sin calibración. Se etiquetará **v1.0.0** al terminar la rama `limpieza-fw8`. [Control por promedios](docs/control-senal.md) · [Datos sintéticos de prueba](tests/datos/README.md).
 
-Las capturas reales del AD8232 ya no se versionan porque contienen datos biométricos/de salud. Sus resultados se resumen en el informe del Avance 4. Se retiran del árbol actual sin reescribir el historial público; las revisiones anteriores aún las contienen. Guarda las sesiones nuevas en `registros/`, ignorado por Git.
+Las capturas reales del AD8232 ya no se versionan porque contienen datos biométricos/de salud: el ECG puede identificar a la persona y este repositorio es público. Sus resultados se resumen en el informe del Avance 4. Se retiran del árbol actual sin reescribir el historial público; las revisiones anteriores aún las contienen. El analizador guarda las sesiones nuevas fuera del repo, en `Path.home() / "registros-emg"`, con identificador aleatorio.
+
+Antes de grabar muestra qué datos guardará (señal ADC, base, envolvente, estados, eventos y estadísticas), la ruta y una confirmación explícita; en modo `--headless` exige `--acepto-guardar`. Por defecto omite `host_utc`; `--incluir-hora` permite añadirlo. Cifra `senal.csv`, `eventos.csv` y `resumen.json` con AES-256-GCM, sal y nonce aleatorios por archivo y clave derivada con scrypt de una contraseña por sesión. Se pide con `getpass` o diálogo; no guarda contraseña ni claves. `EMG_PASSPHRASE` se admite para pruebas. `--sin-cifrar` permite guardar en claro con advertencia, conservando consentimiento y HMAC.
+
+`python Inmoov_EMG/analizador_senal/analizador.py --verificar CARPETA` valida el manifiesto HMAC-SHA256 y cada archivo; `--descifrar ARCHIVO` verifica la sesión y emite el contenido por stdout, sin crear copia. Una contraseña incorrecta o una alteración falla. No se exporta PNG automáticamente; la exportación manual queda en claro y requiere confirmación. Al iniciar se ofrecen borrar sesiones sin cambios por más de 30 días, sólo tras confirmar. También se pueden eliminar sus carpetas completas manualmente, incluidas las exportaciones y copias que se hayan creado; el borrado no garantiza sobreescritura física. Consulta [instalación, formato, comandos y conservación](Inmoov_EMG/analizador_senal/README.md). No publiques registros ni contraseñas.
 
 ## Estado actual del sensor
 

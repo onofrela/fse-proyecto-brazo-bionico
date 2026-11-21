@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import math
 import queue
@@ -11,12 +12,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from privacidad import (MANIFEST, RecordWriter, decrypt_file, is_encrypted,
+                        verify_directory, write_manifest)
+
 
 FIELDS = ["host_utc", "session", "device_ms", "time_s", "raw_adc", "baseline_adc",
           "envelope_adc", "threshold_open_adc", "threshold_close_adc", "flags",
           "adc_overruns", "dropped_logs", "adc_reference_v", "raw_v", "baseline_v",
           "envelope_v", "leads_off", "clipped", "not_ready", "stale"]
-REQUIRED_FIELDS = tuple(FIELDS)
+REQUIRED_FIELDS = tuple(name for name in FIELDS if name != "host_utc")
 FIELDS += ["data_loss", "hardware_fault"]
 EVENT_FIELDS = ["host_utc", "session", "device_ms", "time_s", "name", "value"]
 FLAG_NAMES = {1: "Electrodos sin contacto", 2: "Recorte", 4: "Estabilizando", 8: "ADC sin muestras recientes", 16: "Datos perdidos", 32: "Falla de hardware"}
@@ -91,12 +95,19 @@ class Sample:
 
 
 class Recorder:
-    """Escribe cada trama antes de entregarla a la grafica. CSV UTF-8 para Excel."""
-    def __init__(self, directory, reference=5.0, source="serial"):
+    """Escribe cada trama cifrada antes de entregarla a la gráfica."""
+    def __init__(self, directory, reference=5.0, source="serial", *, passphrase,
+                 encrypted=True, include_time=False):
+        if not passphrase:
+            raise ValueError("Se requiere contraseña para cifrado e integridad.")
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=False)
         self.reference = reference
         self.source = source
+        self.passphrase = passphrase
+        self.encrypted = encrypted
+        self.include_time = include_time
+        self.closed = False
         self.clock = DeviceClock()
         self.invalid = 0
         self.samples = []
@@ -104,9 +115,13 @@ class Recorder:
         self._files = []
         try:
             for name in ("senal", "eventos"):
-                self._files.append((self.directory / f"{name}.csv").open("w", newline="", encoding="utf-8-sig"))
-            self.data_writer = csv.DictWriter(self._files[0], fieldnames=FIELDS)
-            self.event_writer = csv.DictWriter(self._files[1], fieldnames=EVENT_FIELDS)
+                stream = RecordWriter(self.directory / f"{name}.csv", passphrase, encrypted=encrypted)
+                self._files.append(stream)
+                stream.write("\ufeff")
+            fields = FIELDS if include_time else [f for f in FIELDS if f != "host_utc"]
+            events = EVENT_FIELDS if include_time else [f for f in EVENT_FIELDS if f != "host_utc"]
+            self.data_writer = csv.DictWriter(self._files[0], fieldnames=fields, extrasaction="ignore")
+            self.event_writer = csv.DictWriter(self._files[1], fieldnames=events, extrasaction="ignore")
             self.data_writer.writeheader()
             self.event_writer.writeheader()
             for stream in self._files:
@@ -117,6 +132,8 @@ class Recorder:
             raise
 
     def accept(self, line):
+        if self.closed:
+            raise ValueError("Registro cerrado.")
         parsed = parse_line(line)
         if parsed is None:
             if line.strip():
@@ -125,7 +142,7 @@ class Recorder:
         kind, payload = parsed
         ms = payload[0]
         session, relative = self.clock.observe(ms, kind == "E" and payload[1] == "BOOT")
-        host = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+        host = datetime.now(timezone.utc).isoformat(timespec="milliseconds") if self.include_time else ""
         if kind == "D":
             sample = Sample(host, session, ms, relative, *payload[1:], self.reference)
             self.data_writer.writerow(sample.row())
@@ -139,25 +156,40 @@ class Recorder:
         return event
 
     def close(self):
+        if self.closed:
+            return
+        self.closed = True
         for stream in self._files:
             stream.close()
         report = summarize(self.samples)
         report.update(source=self.source, invalid_lines=self.invalid,
                       events=len(self.events), close_commands=sum(e["name"] == "TARGET_DEG" and e["value"] == 180 for e in self.events))
-        (self.directory / "resumen.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+        try:
+            stream = RecordWriter(self.directory / "resumen.json", self.passphrase, encrypted=self.encrypted)
+            try:
+                stream.write(json.dumps(report, indent=2, ensure_ascii=False))
+            finally:
+                stream.close()
+            write_manifest(self.directory, self.passphrase)
+        finally:
+            self.passphrase = None
         return report
 
 
-def read_csv(path):
+def read_csv(path, passphrase=None):
     samples = []
-    with Path(path).open(encoding="utf-8-sig", newline="") as stream:
+    path = Path(path)
+    if is_encrypted(path) or (path.parent / MANIFEST).exists():
+        verify_directory(path.parent, passphrase)
+    data = decrypt_file(path, passphrase) if is_encrypted(path) else path.read_bytes()
+    with io.StringIO(data.decode("utf-8-sig"), newline="") as stream:
         reader = csv.DictReader(stream)
         if not set(REQUIRED_FIELDS).issubset(reader.fieldnames or []):
             raise ValueError("El CSV debe ser senal.csv generado por este analizador.")
         for number, row in enumerate(reader, 2):
             try:
                 ints = [int(row[name]) for name in FIELDS[1:3] + FIELDS[4:12]]
-                sample = Sample(row["host_utc"], ints[0], ints[1], float(row["time_s"]), *ints[2:], float(row["adc_reference_v"]))
+                sample = Sample(row.get("host_utc", ""), ints[0], ints[1], float(row["time_s"]), *ints[2:], float(row["adc_reference_v"]))
                 if (not math.isfinite(sample.time_s) or sample.time_s < 0 or
                         not math.isfinite(sample.adc_reference_v) or sample.adc_reference_v <= 0 or
                         sample.session < 0 or sample.device_ms < 0 or sample.device_ms >= 2**32 or

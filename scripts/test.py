@@ -98,7 +98,9 @@ def main():
                       "Inmoov_EMG/analizador_senal/tests", "-v"], env=python_environment)
         print(output, end="")
         (BUILD / "python.txt").write_text(output, encoding="utf-8")
-        records.append(["PC-01", "protocolo, comandos, CSV antiguo y fallas 16/32", "11 pruebas Python sin fallos", "PASA"])
+        records.append(["PC-01", "protocolo, comandos, CSV antiguo y fallas 16/32", "suite Python sin fallos", "PASA"])
+        records.append(["PC-SEG", "ida y vuelta AES-256-GCM, rechazo de contrasena incorrecta, archivos y manifiesto alterados",
+                        "suite de privacidad, consentimiento y retencion sin fallos", "PASA"])
         # Comparar todas las columnas permite detectar cambios de valores al leer.
         run([sys.executable, "-B", "-c",
              "import csv, sys; from senal import FIELDS, read_csv; "
