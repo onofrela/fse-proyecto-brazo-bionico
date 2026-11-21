@@ -14,7 +14,7 @@ Esta matriz evalúa los requisitos del proyecto sobre la base Arduino disponible
 | Comunicación, IPC y sincronización | `SampleQueue.h`, `Acquisition.cpp`, IPC-01 | Cola compartida SPSC y secciones atómicas; sin hilos/procesos porque el diseño utiliza bare-metal. No cumple literalmente IPC de un SO |
 | Inicio al encender | `setup()` → `Application::begin`, BOOT-01 | Implementado sin espera USB; confirmar desconectando PC en placa |
 | Configuración repetible | `bootstrap.sh`, `build.py`, `verify.sh`, versiones del README | Compilación de firmware y variante sin UART/sonda verificadas; bootstrap con descarga pendiente en equipo limpio |
-| Tiempo / consumo vs compromiso | LAT-SW, R2-SW, R9-SW y protocolo físico | Ponderación: 71 ms sintéticos; objetivo de 50 ms no demostrado; consumo pendiente |
+| Tiempo / consumo vs compromiso | LAT-SW, R2-SW, R9-SW y protocolo físico | Ponderación: 145 ms sintéticos; objetivo de 50 ms no demostrado; consumo pendiente |
 | Tareas con prioridad | `Application::tick`, ISR y tabla de bitácora | Orden cooperativo explícito y prioridades de hardware fijas; no hay prioridades de RTOS |
 | Robustez | Contacto, timeout, cola llena, muestras antiguas, EEPROM y UART | Recuperación de fallas de señal simulada; falla de arranque ADC requiere reinicio, falla mecánica no detectable |
 
@@ -22,13 +22,13 @@ Esta matriz evalúa los requisitos del proyecto sobre la base Arduino disponible
 
 | ID | Compromiso | Resultado disponible | Falta para aceptación |
 | --- | --- | --- | --- |
-| R1 | <=50 ms a primer PWM modificado, 20 eventos | 71 ms hasta orden en ensayo ponderado, sin PWM ni filtro analógico | No demostrado: revisar el compromiso de rechazo de ruido/latencia y medir en placa |
+| R1 | <=50 ms a primer PWM modificado, 20 eventos | 145 ms hasta orden en ensayo ponderado, sin PWM ni filtro analógico | No demostrado: revisar el compromiso de rechazo de ruido/latencia y medir en placa |
 | R2 | Cierre <=1 s, promedio de 10 cierres | Recorrido ordenado 780 ms con bucle ideal de 1 ms | Video >=60 fps con batería >=12 V |
-| R3 | 0–150 grados ±5 por dedo | Pulsos configurables 1000/2000 us | Goniómetro, 3 repeticiones por dedo |
+| R3 | 0–150 grados ±5 por dedo | Pulsos configurables 544/2400 us (0°/180° ordenados por solicitud posterior) | Goniómetro, 3 repeticiones por dedo |
 | R4 | 2.5 kg durante 60 s; elongación <=2% | Sin prueba mecánica | Ensayo de tensor y nudos |
 | R5 | >=90 min; promedio <=1 A a 5 V | Sin medida de corriente/autonomía | Ciclo cada 10 s, voltaje cada 10 min, fin a 10.5 V |
 | R6 | >=90% detección; <=1 falsa/min | Control de actividad sintética y rearme verificados | 50 contracciones y 5 min de reposo |
-| R7 | 20 ms ±1%; pulsos 1–2 ms ±20 us | Servo/Timer1 configurados; 5 órdenes verificadas con doble | Captura simultánea de 5 canales en movimiento |
+| R7 | 20 ms ±1%; pulsos 1–2 ms ±20 us | Servo/Timer1 configurados; extremos actuales 544–2400 us, fuera del intervalo 1–2 ms de este requisito; 5 órdenes verificadas con doble | Captura simultánea de 5 canales en movimiento |
 | R8 | 1 kHz ±1% | Cálculo Timer2 =1000 Hz; cola con contador de pérdida | Medir intervalos entre flancos D2, servos activos |
 | R9 | UI y LED <=20 ms | Máximo 14 ms de botón en 5 fases simuladas | Capturar botón y selector reales frente al LED |
 | R10 | Buck 4.75–5.25 V y 0 reinicios en 100 ciclos | Contador de arranque persistente verificado por código | Osciloscopio + contador antes/después; validar suministro |
@@ -47,3 +47,7 @@ Los logs permanecen en build/, ignorados por Git. Ese remanente no es una medici
 ## Incidencia abierta del sensor
 
 El AD8232 presenta variabilidad de señal cuya causa sigue sin determinarse. Soldaduras, módulo, jumpers, contactos, alimentación y condiciones de adquisición son hipótesis pendientes; las pruebas de software no las descartan. La estabilidad del sensor y la aceptación física de R6 siguen abiertas. Véase [el diagnóstico pendiente](diagnostico-sensor.md).
+
+## Verificación de la revisión FW=7
+
+La variante normal se volvió a compilar: 14598 bytes Flash, 1383 SRAM global y 665 disponibles para pila/temporales. La tabla anterior conserva la medición de la integración FW=6; la variante sin UART/sonda no se volvió a compilar en este ajuste. Se cargó FW=7 en COM3 y se capturaron 119 muestras a 10 Hz, sin pérdidas ni desbordamientos durante esa comprobación. No se midieron ángulos físicos ni se ejecutó una nueva calibración del operador.

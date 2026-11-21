@@ -19,12 +19,10 @@ flowchart TD
     ENV -->|envolvente y salud| APP[Application: coordinación y seguridad]
     BUTTON[Botón D8 / selector D9] --> INPUT[Outputs: GPIO + Inputs: antirrebote]
     INPUT --> APP
-    APP --> CAL[Calibration: P95 de reposo y P70 de actividad]
-    CAL -->|umbrales| APP
-    APP -->|guardar| STORE[Storage: EEPROM verificada]
+    APP -->|contador de arranque| STORE[Storage: EEPROM verificada]
     STORE -->|recuperar al encender| APP
-    APP --> DEC[Decision: ponderación y retención de cierre]
-    DEC --> MOTION[Motion: rampa de cinco dedos]
+    APP --> DEC[Decision: promedio de 200 envolventes y bandas 5/10]
+    DEC --> MOTION[Motion: rampa comun a 0 / 90 / 180 grados]
     MOTION --> OUT[Outputs: Servo / Timer1]
     OUT -->|D3 D5 D6 D10 D11| SERVOS[Cinco servomotores]
     POWER --> SERVOS
@@ -42,19 +40,19 @@ Todos los circuitos de alimentación y señal comparten GND según el cableado. 
 
 ## Propiedad de datos y sincronización
 
-`Application` posee los estados de modo, calibración, filtro, rampa y antirrebote. Solo `loop()` los modifica. La ISR ADC posee el extremo productor de la cola; el bucle posee el consumidor. Timer2 y ADC modifican la alarma y el contador de pérdida. No hay asignaciones dinámicas en el firmware del proyecto.
+`Application` posee los estados de modo, pausa, promedio, filtro, rampa y antirrebote. Solo `loop()` los modifica. La ISR ADC posee el extremo productor de la cola; el bucle posee el consumidor. Timer2 y ADC modifican la alarma y el contador de pérdida. No hay asignaciones dinámicas en el firmware del proyecto.
 
 La publicación de una muestra ocurre después de copiar sus campos. `Acquisition::take()` copia la muestra y avanza el consumidor dentro de `ATOMIC_BLOCK(ATOMIC_RESTORESTATE)`; lo mismo se hace con la lectura/limpieza de alarmas y el contador de 16 bits. Así se evita leer una marca de tiempo o dato de varios bytes a mitad de actualización en el AVR de 8 bits. Las pruebas FIFO verifican orden y límites; la compilación AVR incluye las secciones críticas reales. Falta medir su duración y el jitter en placa.
 
-La cola llena rechaza la muestra nueva y registra una alarma. Al recibirla, `Application` descarta pendientes, invalida el filtro y ordena apertura en EMG. Una muestra vieja (>10 ms) tampoco puede renovar la salud. La adquisición se recupera con 2000 muestras sanas y reposo antes del cierre; una calibración interrumpida debe repetirse. La apertura es una rampa, no un corte de potencia.
+La cola llena rechaza la muestra nueva y registra una alarma. Al recibirla, `Application` descarta pendientes, invalida el filtro y ordena apertura en EMG. Una muestra vieja (>10 ms) tampoco puede renovar la salud. La adquisición se recupera con 2000 muestras sanas y un bloque nuevo de 200 envolventes; no requiere calibración. La apertura es una rampa, no un corte de potencia.
 
 ## Secuencia de arranque
 
 1. Arduino llama a `setup()` tras alimentación/reset y ejecución del bootloader.
 2. Se configuran GPIO y servos abiertos; se valida `attach` y se deshace un arranque parcial si falla.
-3. Se recuperan umbrales y se escribe/verifica el contador de arranque antes de habilitar ADC.
+3. Se ignoran los umbrales anteriores y se escribe/verifica el contador de arranque antes de habilitar ADC.
 4. Se configura ADC con espera acotada y Timer2 con comprobación de registros.
-5. Se entra al bucle sin esperar USB. Con calibración válida opera tras estabilización y reposo. Sin ella permanece abierto hasta una solicitud explícita; D8 permite calibrar incluso con UART deshabilitada.
+5. Se entra al bucle sin esperar USB. El control fijo opera tras estabilización y un promedio completo, sin calibración.
 
 Un fallo al iniciar ADC mantiene EMG inhibido hasta reiniciar; manual sigue disponible si los servos iniciaron. Un fallo de servos inhibe sus órdenes y se señala en RGB/UART. Una falla persistente de hardware no puede repararse por software.
 
@@ -62,4 +60,4 @@ Un fallo al iniciar ADC mantiene EMG inhibido hasta reiniciar; manual sigue disp
 
 SignalFilter tiene estado propio y operaciones `addQ6`/`clear`; no conoce GPIO, servos, EEPROM ni UART. Signal lo reinicia tras pérdida de salud. Sus coeficientes están diseñados para 1000 Hz; la compilación impide cambiar esa frecuencia sin revisar el filtro. El consumidor procesa todas las muestras aceptadas, manteniendo la ISR breve.
 
-Calibration y Decision avanzan con el tiempo de adquisición. Motion avanza con el reloj del bucle y nunca recupera pasos en ráfaga. IPC-TIME verifica ponderación idéntica con una muestra o lotes de cinco. La retención normal no bloquea la vía de falla que solicita apertura. No se añadieron estados por dedo ni se modificó la persistencia incremental.
+Decision cuenta cada envolvente nueva una sola vez, incluidos lotes de muestras. Motion avanza con el reloj del bucle y no recupera pasos en ráfaga. Las pruebas IPC-TIME y TIME-ISR verifican lotes y publicación posterior a la hora de tick. La vía de falla vacía el promedio y solicita apertura. Las clases anteriores de calibración y ponderación permanecen como utilidades históricas, fuera del flujo activo FW8.

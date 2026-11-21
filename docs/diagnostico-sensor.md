@@ -53,3 +53,9 @@ Las instantáneas a 10 Hz permiten comparar niveles y estados, pero no demostrar
 | Solución física validada | Pendiente |
 
 Este documento registra el problema y el plan de investigación. No documenta reparaciones, sustituciones ni mediciones eléctricas que todavía no se hayan realizado.
+
+## Hallazgo de software en el ensayo de 30 segundos
+
+El [nuevo ensayo](mediciones/2026-11-09/ensayo_mano_30s/README.md) mostraba pérdidas y reinicios continuos del filtro sin incrementos de desbordamiento. Se reprodujo un error de edad al recibir una muestra desde la ISR después de tomar la hora del bucle. La resta sin signo interpretaba esa diferencia negativa como una antigüedad enorme. Se corrigió con una comparación firmada para ventanas cortas y se verificó que las muestras realmente antiguas siguen rechazándose.
+
+Este hallazgo explica un fallo de software comprobado. No determina el estado de las soldaduras, jumpers o módulo, ni confirma que toda variación física esté resuelta. La investigación del montaje continúa abierta.

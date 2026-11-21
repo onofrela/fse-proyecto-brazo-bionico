@@ -6,7 +6,7 @@ La implementación conserva la plataforma y los pines de actuadores del proyecto
 
 La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
-Versión actual: **v0.6.0**, firmware modular `FW=6`. [Mediciones reales](docs/mediciones/2026-11-09/README.md) · [Control y calibración](docs/control-senal.md).
+Versión actual: **v0.6.2**, firmware modular `FW=8`. [Mediciones reales](docs/mediciones/2026-11-09/README.md) · [Control por promedios](docs/control-senal.md).
 
 ## Estado actual del sensor
 
@@ -14,7 +14,7 @@ El módulo AD8232 presenta una señal muy variable y todavía se investiga la ca
 
 ## Código modular
 
-El punto de entrada solo llama a `Application::begin()` y `Application::tick()`.
+`Inmoov_EMG/Inmoov_EMG.ino` contiene el firmware completo, incluida la configuración de los servos, para abrirlo directamente en Arduino IDE. Se genera desde los módulos `.h` y `.cpp` con `python scripts/export_ino.py`; los `.cpp` se compilan por separado solo en las pruebas nativas para evitar definiciones duplicadas en Arduino.
 Los comentarios `D01` a `D06` enlazan decisiones concretas con [la bitácora técnica](docs/bitacora.md).
 
 | Módulo | Responsabilidad |
@@ -78,26 +78,24 @@ La guía genérica de SparkFun conecta LO+/LO− a D10/D11; aquí esos pines ya 
 
 ## Carga y primera prueba
 
+Abre [Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) para cargar el firmware completo y la inversión de medio, anular y meñique. No requiere copiar los módulos `.h` y `.cpp`. También se genera una copia idéntica en [Arduino_IDE](Arduino_IDE/README.md).
+
 1. Abre `Inmoov_EMG/Inmoov_EMG.ino` en Arduino IDE. Instala la biblioteca **Servo** y selecciona **Arduino Uno** y el puerto correcto. EEPROM viene con el núcleo AVR.
-2. Ajusta `OPEN_US` y `CLOSED_US` en `Config.h` con los tensores sueltos. Los valores iniciales son 1000 y 2000 microsegundos para cada servo. Puedes invertir los extremos individualmente si un dedo gira al revés.
+2. Los valores `OPEN_US` y `CLOSED_US` están incluidos en el propio `.ino`. Medio (D6), anular (D10) y meñique (D11) tienen los extremos intercambiados para invertir su giro: apertura a 2400 us y cierre a 544 us. Si mantienes los módulos como fuente, ajusta `Config.h` y regenera con `python scripts/export_ino.py`. Ajusta los extremos con los tensores sueltos.
 3. Carga el programa y verifica primero el modo manual: D9 a GND y una pulsación en D8 para cerrar; otra para abrir. Mantener pulsado no repite la orden. Un cambio de modo ordena abrir la mano.
-4. Conecta OUTPUT y ambas salidas LO. Espera 2 s de señal estable. Sin calibración válida, la mano permanece abierta; solicita medir con c, desde la aplicación o manteniendo D8 al encender. No comienza al abrir USB.
+4. Conecta OUTPUT y ambas salidas LO. Espera 2 s de señal estable. El control fijo comienza tras estabilizar la señal y completar 200 muestras nuevas; no requiere calibración.
 
-Los pulsos de 1000/2000 us **no equivalen automáticamente a 0°/150°**. El ángulo real depende del servo, polea y tensores; debe medirse y ajustarse mecánicamente como indica R3. Se usan `writeMicroseconds()` y límites por dedo para no confundir grados con ancho de pulso.
+Para identificar el firmware cargado, abre el Monitor Serie a **115200 baudios** y envía `?`. Debe aparecer `E,...,SERVO_REVERSE_MASK,28`: indica que medio, anular y meñique están invertidos. Si el movimiento físico no corresponde, comprueba que sus señales estén en D6, D10 y D11.
 
-## Calibración y control de mano completa
+Los pulsos de 544/2400 us representan **0°/180° ordenados**, sin garantizar esos ángulos físicos. El ángulo real depende del servo, polea y tensores; debe medirse y ajustarse mecánicamente como indica R3. Se usan `writeMicroseconds()` y límites por dedo para no confundir grados con ancho de pulso.
 
-Una sola orden mueve los cinco servos. La señal no identifica dedos ni distingue por sí sola flexión y extensión: actividad significa cerrar y relajación significa abrir.
+## Control de mano por tres niveles
 
-Solicita calibración con `c`, con la aplicación o con D8 presionado al arrancar. Se mantiene abierta durante 3 s de preparación, 6 s de reposo, 3 s de preparación y 10 s de contracciones/relajaciones repetidas. Se usan P95 de reposo, su dispersión y P70 de actividad. La calibración se rechaza con un motivo si falta señal, muestras o separación. No se fuerza una medición indistinguible del ruido.
+FW8 promedia bloques de 200 muestras de envolvente (~200 ms) y ordena a los cinco dedos: promedio menor que 5 -> 0°, de 5 a menos de 10 -> 90°, desde 10 -> 180°. No requiere calibración ni utiliza sus umbrales anteriores de EEPROM. Los promedios fraccionarios se clasifican sin redondear hacia arriba.
 
-Los umbrales parten de la zona inicial de actividad, con referencias mínimas de 8/12 cuentas y adaptación al reposo medido. La firma `0xE706` exige recalibrar respecto de versiones anteriores. `EEPROM_SAVED` confirma guardado verificado; un fallo de escritura mantiene la calibración en RAM y se informa.
+La rampa usa 544/1472/2400 us para los objetivos 0°/90°/180° en pulgar e índice, y 2400/1472/544 us en medio, anular y meñique (0° → 180°, 90° → 90°, 180° → 0°). Una señal inválida vacía el promedio y abre en modo EMG. El ángulo real debe verificarse en el montaje. Consulta [el funcionamiento](docs/control-senal.md).
 
-Decision transforma la envolvente en 0–100%, con subida de 50 ms y caída de 180 ms. Requiere reposo para rearmar, 65% para cerrar y relajación confirmada para abrir. Mantiene el cierre 900 ms como mínimo para completar la rampa; una falla de señal interrumpe esa retención. Consulta [el algoritmo y sus límites](docs/control-senal.md).
-
-Desde `Inmoov_EMG/analizador_senal`, instala `requirements.txt` y abre `iniciar.bat` o ejecuta `python analizador.py`. Elige el puerto, inicia y sigue Calibrar cuando estés preparado. Cierra antes el monitor serie. Abrir CSV conserva la envolvente del archivo; no recalcula filtros retroactivamente. Detener termina el registro y no desactiva el firmware. Cancelar/abrir envía x. El modo manual y los límites de pulsos por servo se conservan.
-
-Rojo indica manual abierto; amarillo manual cerrado; verde control EMG. Azul/cian guían reposo/actividad. Magenta indica falla, falta de calibración o espera de señal. Ajusta pulsos y valida inicialmente con tensores sueltos.
+En el analizador, Iniciar graba y Detener termina el registro. Pausar / abrir (`x`) pausa el control y solicita apertura. Activar control (`c`) lo reactiva, sin calibrar. La pantalla muestra media y destino. D9/D8 conservan modo manual. La variabilidad física sigue en investigación.
 
 ## Temporización y diagnóstico
 
@@ -110,7 +108,7 @@ Rojo indica manual abierto; amarillo manual cerrado; verde control EMG. Azul/cia
 - **Interfaz:** muestreo cada 5 ms y antirrebote de 10 ms. Máximo observado de 14 ms en las cinco fases del ensayo de botón con bucle simulado de 1 ms; no garantiza la latencia eléctrica del montaje.
 - **Prioridades del bucle:** seguridad/muestras, UI/comandos, rampa/LED, un paso EEPROM y telemetría. Trabajo acotado; UART descarta sin esperar espacio.
 - **D2:** un flanco por conversión: 1 ms entre flancos, onda completa de 500 Hz. `EMG_SAMPLE_PROBE=0` libera D2.
-- **EEPROM:** contador y complemento en 0–7, calibración AD8232 (`0xE706`) en 16–23. Contador escrito y releído al arrancar, antes de ADC. Calibración: invalidar firma, escribir datos y checksum, confirmar firma al final; como máximo un byte por vuelta si EEPROM está lista y lectura posterior de cada byte. `EEPROM_SAVED` confirma persistencia; `EEPROM_SAVE_FAILED` deja la calibración nueva solo en RAM. Un corte durante escritura puede perder la calibración persistida: se rechaza el registro parcial y queda esperando una solicitud de calibración al próximo arranque. No hay sistema de archivos, reparto de desgaste ni recuperación garantizada del contador tras un corte durante su escritura.
+- **EEPROM:** el contador de arranque se conserva. Los bytes de calibración y sus utilidades anteriores permanecen para compatibilidad histórica; FW8 ignora sus umbrales y no guarda calibraciones.
 
 No uses `tone()`, `analogRead()` ni reconfigures Timer1/Timer2 mientras este firmware esté activo. No se usa `analogWrite()` para los servos; Servo genera sus señales por interrupciones incluso en los pines no marcados como PWM.
 
@@ -121,7 +119,7 @@ Monitor serie a **115200 baud**:
 - `p`: activar/desactivar datos de diagnóstico a 10 Hz.
 - `x`: cancelar calibración y ordenar apertura; en EMG exige reposo antes de volver a cerrar. No sustituye al interruptor físico de alimentación.
 
-Eventos: `E,milisegundos,nombre,valor`, por ejemplo `E,12345,CLOSE,25`. `BOOT` informa el contador persistente; `MODE` usa 0 para manual y 1 para EMG. `FW=6` identifica esta revisión; `CAL_FAILED` informa motivo (1 señal, 2 muestras, 3 separación, 4 rango). `TH_OPEN` y `TH_CLOSE` informan los umbrales calibrados. Los eventos `CLOSE` permiten contar las detecciones en R6, pero no son mediciones de movimiento real.
+Eventos: `E,milisegundos,nombre,valor`. `FW=8`, `FIXED_CONTROL=1`, `AVERAGE_SAMPLES=200`, `LEVEL_MID=5` y `LEVEL_HIGH=10` describen el modo fijo. `MEAN_X10` informa el promedio en décimas, `TARGET_DEG` el destino 0/90/180 y `CONTROL_PAUSED` la pausa. Son órdenes, no movimiento físico medido.
 
 Datos: `D,milisegundos,ADC_crudo,base_DC,envolvente,umbral_abrir,umbral_cerrar,estado,overruns,logs_descartados`. `estado` combina bits: 1 = LO+/LO− alto; 2 = recorte/rango inválido; 4 = procesamiento aún no listo; 8 = ADC sin muestras recientes; 16 = pérdida de datos sin recuperación completa; 32 = falla de inicialización ADC o de salida a servos. Pueden sumarse varios bits. `estado=0` solo indica que estos controles de señal pasan; no certifica que la actividad sea una contracción voluntaria.
 
