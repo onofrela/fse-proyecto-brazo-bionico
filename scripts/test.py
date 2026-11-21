@@ -14,7 +14,7 @@ SUITES = {
     "levels": ["tests/levels_test.cpp"],
     "filter": ["tests/filter_test.cpp"],
     "integration": ["tests/integration_test.cpp", "Inmoov_EMG/Application.cpp"],
-    "storage": ["tests/storage_test.cpp"],
+    "storage": ["tests/storage_test.cpp", "Inmoov_EMG/Storage.cpp"],
     "drivers": ["tests/drivers_test.cpp", "Inmoov_EMG/Outputs.cpp", "Inmoov_EMG/Diagnostics.cpp"],
 }
 

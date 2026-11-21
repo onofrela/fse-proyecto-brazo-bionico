@@ -47,13 +47,7 @@ constexpr uint8_t FAULT_DATA_LOSS = 16;
 constexpr uint8_t FAULT_HARDWARE = 32;
 constexpr int EEPROM_BOOT_ADDRESS = 0;
 constexpr int EEPROM_BOOT_INVERSE_ADDRESS = 4;
-constexpr int EEPROM_CAL_ADDRESS = 16;
-constexpr int EEPROM_OPEN_ADDRESS = 18;
-constexpr int EEPROM_CLOSE_ADDRESS = 20;
-constexpr int EEPROM_CHECKSUM_ADDRESS = 22;
-constexpr int EEPROM_REQUIRED_BYTES = 24;
-constexpr uint16_t CALIBRATION_CHECK_SALT = 0xA57C;
-constexpr uint16_t INVALID_SIGNATURE = 0;
+constexpr int EEPROM_REQUIRED_BYTES = 8;
 constexpr uint32_t INVALID_BOOT_COUNT = UINT32_MAX;
 // Asignacion de pines de los perifericos del proyecto.
 constexpr uint8_t SERVO_PINS[SERVO_COUNT] = {3, 5, 6, 10, 11};
@@ -77,7 +71,6 @@ constexpr uint16_t ADC_LOW_CLIP = 5;
 constexpr uint16_t ADC_HIGH_CLIP_MARGIN = 6;
 constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669 con AVcc=5 V.
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
-constexpr uint16_t CALIBRATION_SIGNATURE = 0xE707; // Umbrales adaptativos sin pisos fijos: recalibrar.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");
 static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&

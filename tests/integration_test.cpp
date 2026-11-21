@@ -12,19 +12,18 @@
 
 namespace Fake {
 Hand::SampleQueue<Config::SAMPLE_QUEUE_CAPACITY> queue;
-bool lost, selected, pressed, servoOk, adcOk, saveOk, bootOk, preCalibrated;
+bool lost, selected, pressed, servoOk, adcOk, bootOk;
 bool red, green, blue;
 uint16_t position, overruns;
 unsigned writes;
 bool publicationDuringTick;
 Diagnostics::Command next;
-Hand::Thresholds saved;
 std::vector<std::string> events;
 Diagnostics::Sample diagnostic;
 void reset() {
   queue.clear(); lost = selected = pressed = red = green = blue = false;
-  servoOk = adcOk = saveOk = bootOk = preCalibrated = true;
-  position = overruns = 0; writes = 0; saved = {0, 0};
+  servoOk = adcOk = bootOk = true;
+  position = overruns = 0; writes = 0;
   next = Diagnostics::Command::None; events.clear(); publicationDuringTick = false;
 }
 void push(uint32_t time, uint16_t raw = 338, bool leadsOff = false) {
@@ -57,9 +56,7 @@ bool Outputs::setPosition(uint16_t position) {
 void Outputs::led(bool red, bool green, bool blue) { Fake::red = red; Fake::green = green; Fake::blue = blue; }
 bool Outputs::emgSelected() { return Fake::selected; }
 bool Outputs::buttonPressed() { return Fake::pressed; }
-Storage::Settings Storage::load() { return {{20, 40}, 1, Fake::preCalibrated, Fake::bootOk}; }
-bool Storage::save(const Hand::Thresholds &thresholds) { Fake::saved = thresholds; return true; }
-Hand::SaveResult Storage::poll() { return Fake::saveOk ? Hand::SaveResult::Saved : Hand::SaveResult::Failed; }
+Storage::Settings Storage::load() { return {1, Fake::bootOk}; }
 void Diagnostics::begin() {}
 Diagnostics::Command Diagnostics::command() { const Command value = Fake::next; Fake::next = Command::None; return value; }
 void Diagnostics::event(const char *name, uint32_t, uint32_t) { Fake::events.emplace_back(name); }
@@ -70,7 +67,7 @@ void Diagnostics::requestStatus() {}
 void Diagnostics::update(uint32_t, const ControlStatus &) {}
 
 void testAutonomousThreePositions() {
-  Fake::reset(); Fake::selected=true; Fake::preCalibrated=false;
+  Fake::reset(); Fake::selected=true;
   Hand::Application app; app.begin(0); uint32_t now=0;
   auto feed=[&](uint32_t n,int amplitude=0,bool off=false) { Fake::feed(app,now+1,n,amplitude,off);now+=n; };
   feed(2300); assert(app.status().healthy && app.status().position==0);
@@ -78,8 +75,8 @@ void testAutonomousThreePositions() {
   assert(app.status().target==500 && app.status().position==500);
   feed(1400,40); assert(app.status().target==1000 && app.status().position==1000);
   feed(1600); assert(app.status().position==0);
-  assert(!Fake::event("CAL_PENDING") && !Fake::saved.valid());
-  result("E2E-LEVEL","sin calibracion: ADC -> filtro -> media -> 0/90/180","tres destinos completos; EEPROM de calibracion intacta",true);
+  assert(!Fake::event("CAL_PENDING"));
+  result("E2E-LEVEL","sin calibracion: ADC -> filtro -> media -> 0/90/180","tres destinos completos sin calibracion",true);
   feed(1400,40); assert(app.status().position==1000);
   Fake::next=Diagnostics::Command::Open;app.tick(now);
   feed(1400,40);assert(app.status().paused && app.status().position==0);

@@ -61,13 +61,7 @@ constexpr uint8_t FAULT_DATA_LOSS = 16;
 constexpr uint8_t FAULT_HARDWARE = 32;
 constexpr int EEPROM_BOOT_ADDRESS = 0;
 constexpr int EEPROM_BOOT_INVERSE_ADDRESS = 4;
-constexpr int EEPROM_CAL_ADDRESS = 16;
-constexpr int EEPROM_OPEN_ADDRESS = 18;
-constexpr int EEPROM_CLOSE_ADDRESS = 20;
-constexpr int EEPROM_CHECKSUM_ADDRESS = 22;
-constexpr int EEPROM_REQUIRED_BYTES = 24;
-constexpr uint16_t CALIBRATION_CHECK_SALT = 0xA57C;
-constexpr uint16_t INVALID_SIGNATURE = 0;
+constexpr int EEPROM_REQUIRED_BYTES = 8;
 constexpr uint32_t INVALID_BOOT_COUNT = UINT32_MAX;
 // Asignacion de pines de los perifericos del proyecto.
 constexpr uint8_t SERVO_PINS[SERVO_COUNT] = {3, 5, 6, 10, 11};
@@ -91,7 +85,6 @@ constexpr uint16_t ADC_LOW_CLIP = 5;
 constexpr uint16_t ADC_HIGH_CLIP_MARGIN = 6;
 constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669 con AVcc=5 V.
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
-constexpr uint16_t CALIBRATION_SIGNATURE = 0xE707; // Umbrales adaptativos sin pisos fijos: recalibrar.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");
 static_assert(SENSOR_MAX_ADC > ADC_HIGH_CLIP_MARGIN + ADC_LOW_CLIP &&
@@ -538,98 +531,16 @@ bool buttonPressed();
 }
 #endif
 
-// ===== CalibrationStore.h =====
-#ifndef INMOOV_CALIBRATION_STORE_H
-#define INMOOV_CALIBRATION_STORE_H
-
-namespace Hand {
-enum class SaveResult : uint8_t { Idle, Busy, Saved, Failed };
-
-// Adaptador de bytes: length/read/update/ready. La firma se confirma AL FINAL.
-// Decision D03: como maximo un byte EEPROM por vuelta, solo si esta disponible.
-// Esto evita esperar decenas de ms en EEPROM.put durante la operacion.
-template <class Memory> class CalibrationStore {
- public:
-  explicit CalibrationStore(Memory &memory) : memory_(memory) {}
-  bool load(Thresholds &thresholds) {
-    thresholds = Thresholds{0, 0};
-    if (memory_.length() < Config::EEPROM_REQUIRED_BYTES || !memory_.ready()) return false;
-    const Thresholds candidate = {readWord(Config::EEPROM_OPEN_ADDRESS),
-                                  readWord(Config::EEPROM_CLOSE_ADDRESS)};
-    if (readWord(Config::EEPROM_CAL_ADDRESS) != Config::CALIBRATION_SIGNATURE ||
-        !candidate.valid() || readWord(Config::EEPROM_CHECKSUM_ADDRESS) !=
-        uint16_t(candidate.open ^ candidate.close ^ Config::CALIBRATION_CHECK_SALT))
-      return false;
-    thresholds = candidate;
-    return true;
-  }
-  bool start(const Thresholds &thresholds) {
-    if (result_ == SaveResult::Busy || !thresholds.valid() ||
-        memory_.length() < Config::EEPROM_REQUIRED_BYTES) return false;
-    pending_ = thresholds;
-    step_ = 0;
-    verifying_ = false;
-    result_ = SaveResult::Busy;
-    return true;
-  }
-  SaveResult poll() {
-    if (result_ != SaveResult::Busy || !memory_.ready()) return result_;
-    if (verifying_) {
-      if (memory_.read(address()) != value()) { result_ = SaveResult::Failed; return result_; }
-      ++step_;
-      verifying_ = false;
-      if (step_ == WRITE_STEPS) { result_ = SaveResult::Saved; return result_; }
-    }
-    memory_.update(address(), value()); // Sin espera: ready() ya fue comprobado.
-    verifying_ = true;
-    return result_;
-  }
- private:
-  static constexpr uint8_t WORD_BYTES = sizeof(uint16_t);
-  static constexpr uint8_t INVALIDATE_STEPS = WORD_BYTES;
-  static constexpr uint8_t PAYLOAD_STEPS = 3 * WORD_BYTES;
-  static constexpr uint8_t WRITE_STEPS = 2 * WORD_BYTES + PAYLOAD_STEPS;
-  uint16_t readWord(int address) {
-    return uint16_t(memory_.read(address)) | (uint16_t(memory_.read(address + 1)) << 8);
-  }
-  int address() const {
-    if (step_ < INVALIDATE_STEPS) return Config::EEPROM_CAL_ADDRESS + step_;
-    if (step_ < INVALIDATE_STEPS + PAYLOAD_STEPS)
-      return Config::EEPROM_OPEN_ADDRESS + step_ - INVALIDATE_STEPS;
-    return Config::EEPROM_CAL_ADDRESS + step_ - INVALIDATE_STEPS - PAYLOAD_STEPS;
-  }
-  uint8_t value() const {
-    if (step_ < INVALIDATE_STEPS) return Config::INVALID_SIGNATURE;
-    uint16_t word;
-    if (step_ >= INVALIDATE_STEPS + PAYLOAD_STEPS) word = Config::CALIBRATION_SIGNATURE;
-    else if (step_ < INVALIDATE_STEPS + WORD_BYTES) word = pending_.open;
-    else if (step_ < INVALIDATE_STEPS + 2 * WORD_BYTES) word = pending_.close;
-    else word = pending_.open ^ pending_.close ^ Config::CALIBRATION_CHECK_SALT;
-    return uint8_t(word >> ((step_ % WORD_BYTES) * 8));
-  }
-  Memory &memory_;
-  Thresholds pending_ = {0, 0};
-  uint8_t step_ = 0;
-  bool verifying_ = false;
-  SaveResult result_ = SaveResult::Idle;
-};
-}
-#endif
-
 // ===== Storage.h =====
 #ifndef INMOOV_STORAGE_H
 #define INMOOV_STORAGE_H
 
 namespace Storage {
 struct Settings {
-  Hand::Thresholds thresholds;
   uint32_t bootCount;
-  bool calibrated;
   bool bootVerified;
 };
 Settings load();
-bool save(const Hand::Thresholds &thresholds);
-Hand::SaveResult poll();
 }
 #endif
 
@@ -1046,23 +957,17 @@ bool Outputs::buttonPressed() { return digitalRead(Config::BUTTON_PIN) == LOW; }
 #include <EEPROM.h>
 #include <avr/eeprom.h>
 
-namespace {
-struct EepromBytes {
-  int length() const { return EEPROM.length(); }
-  bool ready() const { return eeprom_is_ready(); }
-  uint8_t read(int address) { return EEPROM.read(address); }
-  void update(int address, uint8_t value) { EEPROM.update(address, value); }
-} memory;
-Hand::CalibrationStore<EepromBytes> calibrationStore(memory);
-}
 Storage::Settings Storage::load() {
-  Settings result = {{0, 0}, 0, false, false};
+  Settings result = {0, false};
   if (EEPROM.length() < Config::EEPROM_REQUIRED_BYTES) return result;
   uint32_t savedCount, inverse;
   EEPROM.get(Config::EEPROM_BOOT_ADDRESS, savedCount);
   EEPROM.get(Config::EEPROM_BOOT_INVERSE_ADDRESS, inverse);
-  result.bootCount = (savedCount ^ inverse) == UINT32_MAX &&
-                     savedCount < Config::INVALID_BOOT_COUNT - 1 ? savedCount + 1 : 1;
+  // UINT32_MAX se reserva como invalido; el ultimo contador valido se satura.
+  constexpr uint32_t MAX_BOOT_COUNT = Config::INVALID_BOOT_COUNT - 1;
+  const bool valid = (savedCount ^ inverse) == UINT32_MAX &&
+                     savedCount != Config::INVALID_BOOT_COUNT;
+  result.bootCount = !valid ? 1 : savedCount < MAX_BOOT_COUNT ? savedCount + 1 : MAX_BOOT_COUNT;
   inverse = ~result.bootCount;
   // Solo al arranque, antes de habilitar ADC: aqui se permite esperar EEPROM.
   EEPROM.put(Config::EEPROM_BOOT_ADDRESS, result.bootCount);
@@ -1072,11 +977,8 @@ Storage::Settings Storage::load() {
   EEPROM.get(Config::EEPROM_BOOT_ADDRESS, actualCount);
   EEPROM.get(Config::EEPROM_BOOT_INVERSE_ADDRESS, actualInverse);
   result.bootVerified = actualCount == result.bootCount && actualInverse == inverse;
-  result.calibrated = calibrationStore.load(result.thresholds);
   return result;
 }
-bool Storage::save(const Hand::Thresholds &thresholds) { return calibrationStore.start(thresholds); }
-Hand::SaveResult Storage::poll() { return calibrationStore.poll(); }
 
 // ===== Entrada Arduino =====
 namespace { Hand::Application application; }
