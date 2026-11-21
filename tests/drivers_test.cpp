@@ -34,6 +34,12 @@ int main() {
                      servoPulses[Config::SERVO_PINS[n]] < previous[n]);
   }
   result("DRV-REVERSE","rampa con sentidos opuestos entre los dos grupos","D3/D5 suben; D6/D10/D11 bajan en los 40 pasos",true);
+  constexpr uint8_t FREE_PINS[] = {7, 12, 13};
+  for (uint8_t pin : FREE_PINS)
+    assert(testGpio().modeCalls[pin] == 0 && testGpio().writeCalls[pin] == 0);
+  assert(testGpio().modeCalls[Config::BUTTON_PIN] > 0 &&
+         testGpio().modeCalls[Config::MODE_PIN] > 0);
+  result("DRV-FREE","D7/D12/D13 libres durante inicio y movimiento","sin pinMode ni digitalWrite en los tres pines",true);
   Diagnostics::begin(); assert(Serial.baud == Config::SERIAL_BAUD);
   Serial.capacity = 0; const auto before = Diagnostics::dropped();
   Diagnostics::event("TEST", 1, 2);

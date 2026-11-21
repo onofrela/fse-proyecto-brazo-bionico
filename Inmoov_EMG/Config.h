@@ -16,7 +16,6 @@ constexpr uint16_t MOTION_PERIOD_MS = 20;
 constexpr uint16_t UI_PERIOD_MS = 5;
 constexpr uint16_t DEBOUNCE_MS = 10;
 constexpr uint16_t MAX_CONTROL_GAP_MS = 20;
-constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint16_t SAMPLE_HZ = 1000;
@@ -56,10 +55,6 @@ constexpr uint8_t MODE_PIN = 9; // GND = manual; abierto = EMG.
 // Salidas del AD8232, activas en alto. INPUT sin pull-up interno de 5 V.
 constexpr uint8_t LEADS_OFF_PLUS_PIN = 15;  // A1 en UNO.
 constexpr uint8_t LEADS_OFF_MINUS_PIN = 16; // A2 en UNO.
-constexpr uint8_t LED_RED = 7;
-constexpr uint8_t LED_GREEN = 12;
-constexpr uint8_t LED_BLUE = 13;
-constexpr bool RGB_COMMON_ANODE = false;
 
 // OUTPUT del AD8232: 0..3.3 V; el ADC conserva AVcc como referencia.
 // Ajustar ADC_REFERENCE_MV si se mide una AVcc diferente en el montaje.

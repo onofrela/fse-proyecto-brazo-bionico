@@ -19,7 +19,6 @@ class Application {
  private:
   void requestPosition(uint16_t target, uint32_t now);
   void updateUi(uint32_t now);
-  void updateLed(uint32_t now);
   void consume(const RawSample &raw, uint32_t now);
   void signalLost(uint32_t now);
   void reportSignal(uint32_t now);

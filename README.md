@@ -27,7 +27,7 @@ Los comentarios `D01` a `D06` enlazan decisiones concretas con [la bitácora té
 | `Decision.h` | Promedio de 200 muestras de envolvente y control fijo por tres niveles |
 | `Motion.h` | Rampa simultánea y conversión a pulsos |
 | `Inputs.h` | Antirrebote de botón y selector |
-| `Outputs.h/.cpp` | GPIO, RGB y cinco servos; deshace un arranque parcial |
+| `Outputs.h/.cpp` | GPIO y cinco servos; deshace un arranque parcial |
 | `Storage.h/.cpp`, `CalibrationStore.h` | EEPROM verificada y guardado incremental |
 | `Diagnostics.h/.cpp` | Comandos y telemetría UART de baja prioridad |
 | `Application.h/.cpp` | Coordinación de módulos y recuperación de fallas |
@@ -64,13 +64,11 @@ Alimenta los servos desde una fuente/buck dimensionada para sus corrientes, con 
 | Servo meñique | D11 | Señal del servo |
 | Pulsador | D8 | Entre D8 y GND, `INPUT_PULLUP` |
 | Selector | D9 | GND = manual; abierto = EMG, `INPUT_PULLUP` |
-| RGB rojo | D7 | Resistencia individual de 220 ohm |
-| RGB verde | D12 | Resistencia individual de 220 ohm |
-| RGB azul | D13 | Resistencia individual de 220 ohm |
+| Pines libres | D7/D12/D13 | Sin asignación en el firmware |
 | Prueba de muestreo | D2 | Salida opcional; un flanco por conversión ADC |
 | Depuración USB | D0/D1 | UART a 115200 baud; sin módulo Bluetooth |
 
-RGB de cátodo común por defecto, común a GND. Para ánodo común cambia `RGB_COMMON_ANODE` en `Config.h` y conecta el común según el LED. La tabla sustituye los pines de servo D2–D6 del código original: el proyecto usa D3/D5/D6/D10/D11.
+La tabla sustituye los pines de servo D2–D6 del código original: el proyecto usa D3/D5/D6/D10/D11.
 
 La guía genérica de SparkFun conecta LO+/LO− a D10/D11; aquí esos pines ya controlan servos y **se usan A1/A2 para LO+/LO−**. No conectes ambas funciones a los mismos pines.
 
@@ -95,6 +93,8 @@ La rampa usa 544/1472/2400 us para los objetivos 0°/90°/180° en pulgar e índ
 
 En el analizador, Iniciar graba y Detener termina el registro. Pausar / abrir (`x`) pausa el control y solicita apertura. Activar control (`c`) lo reactiva, sin calibrar. La pantalla muestra media y destino. D9/D8 conservan modo manual. La variabilidad física sigue en investigación.
 
+Las fallas se reportan por UART a 115200 baudios mediante eventos `E,...`, incluidos `SIGNAL_FAULT`, `SERVO_INIT_FAILED`, `SERVO_WRITE_FAILED`, `ADC_INIT_FAILED` y `EEPROM_BOOT_FAILED`.
+
 ## Temporización y diagnóstico
 
 - **Timer2:** CTC, prescaler 64, OCR2A=249; solicita una conversión cada 1 ms. Si el ADC sigue ocupado o su resultado no fue recogido, registra pérdida.
@@ -104,7 +104,7 @@ En el analizador, Iniciar graba y Detener termina el registro. Pausar / abrir (`
 - **Timer1:** reservado a Servo para cinco trenes de pulsos de aproximadamente 50 Hz. Timer0 conserva `millis()`/`micros()`. Las ISR AVR no se anidan ni tienen prioridades de RTOS configurables; véase la diferencia entre prioridad relativa y orden de vectores en la bitácora.
 - **Movimiento:** avance de 25/1000 cada 20 ms y primer paso inmediato: 780 ms en la simulación con bucle de 1 ms. La duración real requiere video; la rampa no recupera pasos atrasados de golpe.
 - **Interfaz:** muestreo cada 5 ms y antirrebote de 10 ms. Máximo observado de 14 ms en las cinco fases del ensayo de botón con bucle simulado de 1 ms; no garantiza la latencia eléctrica del montaje.
-- **Prioridades del bucle:** seguridad/muestras, UI/comandos, rampa/LED, un paso EEPROM y telemetría. Trabajo acotado; UART descarta sin esperar espacio.
+- **Prioridades del bucle:** seguridad/muestras, UI/comandos, rampa, un paso EEPROM y telemetría. Trabajo acotado; UART descarta sin esperar espacio.
 - **D2:** un flanco por conversión: 1 ms entre flancos, onda completa de 500 Hz. `EMG_SAMPLE_PROBE=0` libera D2.
 - **EEPROM:** el contador de arranque se conserva. Los bytes de calibración y sus utilidades anteriores permanecen para compatibilidad histórica; FW8 ignora sus umbrales y no guarda calibraciones.
 

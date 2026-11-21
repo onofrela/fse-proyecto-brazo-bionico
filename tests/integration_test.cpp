@@ -13,7 +13,6 @@
 namespace Fake {
 Hand::SampleQueue<Config::SAMPLE_QUEUE_CAPACITY> queue;
 bool lost, selected, pressed, servoOk, adcOk, bootOk;
-bool red, green, blue;
 uint16_t position, overruns;
 unsigned writes;
 bool publicationDuringTick;
@@ -21,7 +20,7 @@ Diagnostics::Command next;
 std::vector<std::string> events;
 Diagnostics::Sample diagnostic;
 void reset() {
-  queue.clear(); lost = selected = pressed = red = green = blue = false;
+  queue.clear(); lost = selected = pressed = false;
   servoOk = adcOk = bootOk = true;
   position = overruns = 0; writes = 0;
   next = Diagnostics::Command::None; events.clear(); publicationDuringTick = false;
@@ -53,7 +52,6 @@ bool Outputs::begin() { return Fake::servoOk; }
 bool Outputs::setPosition(uint16_t position) {
   ++Fake::writes; if (!Fake::servoOk) return false; Fake::position = position; return true;
 }
-void Outputs::led(bool red, bool green, bool blue) { Fake::red = red; Fake::green = green; Fake::blue = blue; }
 bool Outputs::emgSelected() { return Fake::selected; }
 bool Outputs::buttonPressed() { return Fake::pressed; }
 Storage::Settings Storage::load() { return {1, Fake::bootOk}; }
@@ -84,8 +82,10 @@ void testAutonomousThreePositions() {
   feed(1400,40);assert(!app.status().paused && app.status().position==1000);
   result("LEVEL-PAUSE","x abre y pausa; c reactiva sin calibrar","pausa persistente incluso con actividad alta",true);
   feed(1,0,true);assert(!app.status().healthy && app.status().target==0);
+  assert(Fake::event("SIGNAL_FAULT"));
   feed(1600,40);assert(!app.status().healthy && app.status().position==0);
   feed(1400,40);assert(app.status().healthy && app.status().position==1000);
+  assert(Fake::event("SIGNAL_RECOVERED"));
   now+=11;app.tick(now);assert(!app.status().healthy && app.status().target==0);
   feed(3300,40);assert(app.status().position==1000);
   Fake::lost=true;app.tick(now);assert(!app.status().healthy && app.status().target==0);
@@ -120,8 +120,17 @@ void testHardwareAndManual() {
   Fake::reset();Fake::servoOk=false;Hand::Application badServo;badServo.begin(0);
   Fake::feed(badServo,1,2500,40);
   assert(badServo.status().outputFault && !Fake::writes);
+  assert(Fake::event("SERVO_INIT_FAILED"));
   Fake::reset();Fake::adcOk=false;Fake::selected=true;Hand::Application badAdc;badAdc.begin(0);
   Fake::feed(badAdc,1,3500,40);assert(!badAdc.status().healthy && !badAdc.status().target);
+  assert(Fake::event("ADC_INIT_FAILED"));
+  Fake::reset();Fake::bootOk=false;Hand::Application badStorage;badStorage.begin(0);
+  assert(badStorage.status().storageFault && !badStorage.status().outputFault);
+  assert(Fake::event("EEPROM_BOOT_FAILED"));
+  Fake::reset();Hand::Application writeFailure;writeFailure.begin(0);
+  Fake::servoOk=false;Fake::pressed=true;Fake::feed(writeFailure,1,20);
+  assert(writeFailure.status().outputFault && Fake::event("SERVO_WRITE_FAILED"));
+  result("HW-UART","fallas siguen visibles sin RGB","eventos de senal, servos, ADC y EEPROM conservados",true);
   Fake::reset();Hand::Application manual;manual.begin(0);Fake::pressed=true;
   Fake::feed(manual,1,1000);assert(manual.status().position==1000);
   Fake::pressed=false;Fake::feed(manual,1001,20);Fake::pressed=true;

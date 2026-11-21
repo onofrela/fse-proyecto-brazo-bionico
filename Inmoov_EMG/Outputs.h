@@ -4,7 +4,6 @@
 namespace Outputs {
 bool begin();
 bool setPosition(uint16_t position);
-void led(bool red, bool green, bool blue);
 bool emgSelected();
 bool buttonPressed();
 }

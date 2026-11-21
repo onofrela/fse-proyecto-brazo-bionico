@@ -28,7 +28,6 @@ flowchart TD
     POWER --> SERVOS
     SERVOS --> TENDON[Tensores]
     TENDON --> HAND[Dedos InMoov]
-    APP --> RGB[Outputs: RGB D7 D12 D13]
     APP --> DIAG[Diagnostics: UART 115200]
     DIAG -->|registro opcional| PC[Analizador: CSV y gráficas]
     PC -->|c / p / x / consulta| DIAG
@@ -37,6 +36,8 @@ flowchart TD
 ```
 
 Todos los circuitos de alimentación y señal comparten GND según el cableado. El AD8232 recibe 3.3 V; la alimentación de servos debe soportar sus corrientes sin pasar por USB ni el regulador del UNO. No se debe alimentar el AD8232 a 5 V.
+
+D7/D12/D13 quedan libres, sin asignación en el firmware.
 
 ## Propiedad de datos y sincronización
 
@@ -54,7 +55,7 @@ La cola llena rechaza la muestra nueva y registra una alarma. Al recibirla, `App
 4. Se configura ADC con espera acotada y Timer2 con comprobación de registros.
 5. Se entra al bucle sin esperar USB. El control fijo opera tras estabilización y un promedio completo, sin calibración.
 
-Un fallo al iniciar ADC mantiene EMG inhibido hasta reiniciar; manual sigue disponible si los servos iniciaron. Un fallo de servos inhibe sus órdenes y se señala en RGB/UART. Una falla persistente de hardware no puede repararse por software.
+Un fallo al iniciar ADC mantiene EMG inhibido hasta reiniciar; manual sigue disponible si los servos iniciaron. Un fallo de servos inhibe sus órdenes. Las fallas se reportan por UART con eventos `E,...`. Una falla persistente de hardware no puede repararse por software.
 
 ## Contrato del filtro y de los dos relojes
 

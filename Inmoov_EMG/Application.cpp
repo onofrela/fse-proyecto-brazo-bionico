@@ -25,7 +25,6 @@ void Hand::Application::begin(uint32_t now) {
   if (acquisitionFault_) Diagnostics::event("ADC_INIT_FAILED",now,0);
   if (storageFault_) Diagnostics::event("EEPROM_BOOT_FAILED",now,0);
   Diagnostics::requestStatus();
-  updateLed(now);
 }
 Hand::Application::Status Hand::Application::status() const {
   return {emgMode_,healthy_,outputFault_,storageFault_,motion_.closed(),paused_,
@@ -84,15 +83,8 @@ void Hand::Application::reportSignal(uint32_t now) {
   reportedHealthy_=healthy_;
   Diagnostics::event(healthy_ ? "SIGNAL_RECOVERED" : "SIGNAL_FAULT",now,sample_.raw);
 }
-void Hand::Application::updateLed(uint32_t now) {
-  const bool blink=(now/Config::LED_BLINK_MS)%2==0;
-  if (outputFault_ || acquisitionFault_ || storageFault_ || (emgMode_ && !healthy_))
-    Outputs::led(blink,false,blink);
-  else if (emgMode_ && paused_) Outputs::led(false,false,true);
-  else Outputs::led(!emgMode_,emgMode_ || motion_.closed(),false);
-}
 void Hand::Application::tick(uint32_t now) {
-  // Prioridad: seguridad/muestras -> entradas -> rampa/LED -> UART.
+  // Prioridad: seguridad/muestras -> entradas -> rampa -> UART.
   if (Acquisition::takeDataLoss()) {
     Acquisition::discardPending(); dataLoss_=true; signalLost(now);
   }
@@ -120,7 +112,7 @@ void Hand::Application::tick(uint32_t now) {
   if (!outputFault_ && motion_.update(now) && !Outputs::setPosition(motion_.position())) {
     outputFault_=true; Diagnostics::event("SERVO_WRITE_FAILED",now,0);
   }
-  updateLed(now); reportSignal(now);
+  reportSignal(now);
   sample_.overruns=Acquisition::overruns();
   Diagnostics::plot(now,sample_,{Config::LEVEL_MID_START,Config::LEVEL_HIGH_START});
   Diagnostics::update(now,{paused_,levels_.meanX10(),

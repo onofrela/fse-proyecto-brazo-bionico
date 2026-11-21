@@ -5,8 +5,14 @@
 #include <string>
 constexpr uint8_t INPUT_PULLUP = 2, OUTPUT = 1, HIGH = 1, LOW = 0;
 extern bool pinValues[20];
-inline void pinMode(uint8_t, uint8_t) {}
-inline void digitalWrite(uint8_t pin, bool value) { pinValues[pin] = value; }
+struct TestGpio {
+  unsigned modeCalls[20] = {}, writeCalls[20] = {};
+};
+inline TestGpio &testGpio() { static TestGpio state; return state; }
+inline void pinMode(uint8_t pin, uint8_t) { ++testGpio().modeCalls[pin]; }
+inline void digitalWrite(uint8_t pin, bool value) {
+  ++testGpio().writeCalls[pin]; pinValues[pin] = value;
+}
 inline int digitalRead(uint8_t pin) { return pinValues[pin]; }
 struct TestSerial {
   int capacity = 63, input = -1;

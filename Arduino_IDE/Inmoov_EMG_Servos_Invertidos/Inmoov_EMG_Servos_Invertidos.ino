@@ -30,7 +30,6 @@ constexpr uint16_t MOTION_PERIOD_MS = 20;
 constexpr uint16_t UI_PERIOD_MS = 5;
 constexpr uint16_t DEBOUNCE_MS = 10;
 constexpr uint16_t MAX_CONTROL_GAP_MS = 20;
-constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint16_t SAMPLE_HZ = 1000;
@@ -70,10 +69,6 @@ constexpr uint8_t MODE_PIN = 9; // GND = manual; abierto = EMG.
 // Salidas del AD8232, activas en alto. INPUT sin pull-up interno de 5 V.
 constexpr uint8_t LEADS_OFF_PLUS_PIN = 15;  // A1 en UNO.
 constexpr uint8_t LEADS_OFF_MINUS_PIN = 16; // A2 en UNO.
-constexpr uint8_t LED_RED = 7;
-constexpr uint8_t LED_GREEN = 12;
-constexpr uint8_t LED_BLUE = 13;
-constexpr bool RGB_COMMON_ANODE = false;
 
 // OUTPUT del AD8232: 0..3.3 V; el ADC conserva AVcc como referencia.
 // Ajustar ADC_REFERENCE_MV si se mide una AVcc diferente en el montaje.
@@ -500,7 +495,6 @@ class Application {
  private:
   void requestPosition(uint16_t target, uint32_t now);
   void updateUi(uint32_t now);
-  void updateLed(uint32_t now);
   void consume(const RawSample &raw, uint32_t now);
   void signalLost(uint32_t now);
   void reportSignal(uint32_t now);
@@ -525,7 +519,6 @@ class Application {
 namespace Outputs {
 bool begin();
 bool setPosition(uint16_t position);
-void led(bool red, bool green, bool blue);
 bool emgSelected();
 bool buttonPressed();
 }
@@ -675,7 +668,6 @@ void Hand::Application::begin(uint32_t now) {
   if (acquisitionFault_) Diagnostics::event("ADC_INIT_FAILED",now,0);
   if (storageFault_) Diagnostics::event("EEPROM_BOOT_FAILED",now,0);
   Diagnostics::requestStatus();
-  updateLed(now);
 }
 Hand::Application::Status Hand::Application::status() const {
   return {emgMode_,healthy_,outputFault_,storageFault_,motion_.closed(),paused_,
@@ -734,15 +726,8 @@ void Hand::Application::reportSignal(uint32_t now) {
   reportedHealthy_=healthy_;
   Diagnostics::event(healthy_ ? "SIGNAL_RECOVERED" : "SIGNAL_FAULT",now,sample_.raw);
 }
-void Hand::Application::updateLed(uint32_t now) {
-  const bool blink=(now/Config::LED_BLINK_MS)%2==0;
-  if (outputFault_ || acquisitionFault_ || storageFault_ || (emgMode_ && !healthy_))
-    Outputs::led(blink,false,blink);
-  else if (emgMode_ && paused_) Outputs::led(false,false,true);
-  else Outputs::led(!emgMode_,emgMode_ || motion_.closed(),false);
-}
 void Hand::Application::tick(uint32_t now) {
-  // Prioridad: seguridad/muestras -> entradas -> rampa/LED -> UART.
+  // Prioridad: seguridad/muestras -> entradas -> rampa -> UART.
   if (Acquisition::takeDataLoss()) {
     Acquisition::discardPending(); dataLoss_=true; signalLost(now);
   }
@@ -770,7 +755,7 @@ void Hand::Application::tick(uint32_t now) {
   if (!outputFault_ && motion_.update(now) && !Outputs::setPosition(motion_.position())) {
     outputFault_=true; Diagnostics::event("SERVO_WRITE_FAILED",now,0);
   }
-  updateLed(now); reportSignal(now);
+  reportSignal(now);
   sample_.overruns=Acquisition::overruns();
   Diagnostics::plot(now,sample_,{Config::LEVEL_MID_START,Config::LEVEL_HIGH_START});
   Diagnostics::update(now,{paused_,levels_.meanX10(),
@@ -909,10 +894,6 @@ void detachAll() {
 bool Outputs::begin() {
   pinMode(Config::BUTTON_PIN, INPUT_PULLUP);
   pinMode(Config::MODE_PIN, INPUT_PULLUP);
-  pinMode(Config::LED_RED, OUTPUT);
-  pinMode(Config::LED_GREEN, OUTPUT);
-  pinMode(Config::LED_BLUE, OUTPUT);
-  led(false, false, false);
   // Validar todos los limites antes de activar el primer motor.
   for (uint8_t finger = 0; finger < Config::SERVO_COUNT; ++finger) {
     if (Config::OPEN_US[finger] < Config::SERVO_MIN_US ||
@@ -942,11 +923,6 @@ bool Outputs::setPosition(uint16_t position) {
   }
   // writeMicroseconds y GPIO no devuelven estado ni miden posicion fisica.
   return true;
-}
-void Outputs::led(bool red, bool green, bool blue) {
-  digitalWrite(Config::LED_RED, red != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_GREEN, green != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_BLUE, blue != Config::RGB_COMMON_ANODE);
 }
 bool Outputs::emgSelected() { return digitalRead(Config::MODE_PIN) == HIGH; }
 bool Outputs::buttonPressed() { return digitalRead(Config::BUTTON_PIN) == LOW; }

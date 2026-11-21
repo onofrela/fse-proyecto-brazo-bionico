@@ -17,10 +17,6 @@ void detachAll() {
 bool Outputs::begin() {
   pinMode(Config::BUTTON_PIN, INPUT_PULLUP);
   pinMode(Config::MODE_PIN, INPUT_PULLUP);
-  pinMode(Config::LED_RED, OUTPUT);
-  pinMode(Config::LED_GREEN, OUTPUT);
-  pinMode(Config::LED_BLUE, OUTPUT);
-  led(false, false, false);
   // Validar todos los limites antes de activar el primer motor.
   for (uint8_t finger = 0; finger < Config::SERVO_COUNT; ++finger) {
     if (Config::OPEN_US[finger] < Config::SERVO_MIN_US ||
@@ -50,11 +46,6 @@ bool Outputs::setPosition(uint16_t position) {
   }
   // writeMicroseconds y GPIO no devuelven estado ni miden posicion fisica.
   return true;
-}
-void Outputs::led(bool red, bool green, bool blue) {
-  digitalWrite(Config::LED_RED, red != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_GREEN, green != Config::RGB_COMMON_ANODE);
-  digitalWrite(Config::LED_BLUE, blue != Config::RGB_COMMON_ANODE);
 }
 bool Outputs::emgSelected() { return digitalRead(Config::MODE_PIN) == HIGH; }
 bool Outputs::buttonPressed() { return digitalRead(Config::BUTTON_PIN) == LOW; }
