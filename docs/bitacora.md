@@ -1,8 +1,20 @@
 # Bitácora técnica de modularización
 
-Fecha de actualización: 2026-11-09 (America/Mexico_City). Registro de decisiones técnicas y verificaciones de software. Las mediciones físicas y revisiones del equipo se documentan por separado.
+Fecha de actualización: 2026-11-21 (America/Mexico_City). Registro de decisiones técnicas y verificaciones de software. Las mediciones físicas y revisiones del equipo se documentan por separado.
 
 Plataforma: Arduino UNO R3, arquitectura bare-metal e interrupciones. La revisión considera modularidad, comunicación, temporización, persistencia y evidencia de pruebas.
+
+## Retiro de calibración y control ponderado en FW8
+
+La calibración guiada solía fallar porque la señal se mezclaba con los latidos del corazón. El equipo encontró una referencia más clara en la tercera señal del analizador, la envolvente, que sigue el movimiento de la mano: valores de 1 a 4 en reposo, de 5 a 9 con el músculo medio tenso y de 10 en adelante con la mano tensada. Estas observaciones motivan la decisión; este cambio no aporta nuevas mediciones físicas.
+
+FW8 usa esa referencia con bandas fijas: `ThreeLevelControl` promedia bloques de 200 muestras y ordena 0°/90°/180° con fronteras en 5 y 10, sin calibración ni ponderación temporal. Se retiran `Calibration.h`, `MuscleSwitch`, la fachada `Control.h` y sus pruebas históricas. El filtrado conserva `BASELINE_*`; la persistencia histórica y su firma se conservan hasta el paso 3 de la limpieza.
+
+El costo aceptado es la latencia: a 1 kHz, cada bloque de 200 muestras representa aproximadamente 200 ms. **R1 (≤ 50 ms) ya no se cumple por diseño**; las pruebas de software no sustituyen una medición física de respuesta.
+
+Las decisiones y cifras de las secciones siguientes documentan etapas anteriores; las referencias a calibración y control ponderado son históricas.
+
+## Decisiones de modularización anteriores
 
 | Decisión y evidencia en código | Planeado / base | Construido y motivo |
 | --- | --- | --- |

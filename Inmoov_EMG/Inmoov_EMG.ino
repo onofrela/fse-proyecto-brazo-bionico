@@ -29,18 +29,6 @@ constexpr uint16_t MOTION_STEP = 25;
 constexpr uint16_t MOTION_PERIOD_MS = 20;
 constexpr uint16_t UI_PERIOD_MS = 5;
 constexpr uint16_t DEBOUNCE_MS = 10;
-constexpr uint16_t CAL_PREPARE_MS = 3000;
-constexpr uint16_t CAL_REST_MS = 6000;
-constexpr uint16_t CAL_ACTIVE_MS = 10000;
-constexpr uint16_t CAL_SAMPLE_MS = 20;
-constexpr uint16_t ACTIVITY_ATTACK_MS = 120; // Un pico aislado de 100 ms no ordena cierre.
-constexpr uint16_t ACTIVITY_DECAY_MS = 180;
-constexpr uint16_t ACTIVITY_CLOSE_LEVEL = 650; // Ponderacion 0..1000.
-constexpr uint16_t ACTIVITY_OPEN_LEVEL = 200;
-constexpr uint16_t REST_ARM_MS = 100;
-constexpr uint16_t RELAX_CONFIRM_MS = 250;
-constexpr uint16_t MIN_CLOSED_MS = 900; // Permite completar la rampa de 780..800 ms.
-constexpr uint16_t MIN_OPEN_MS = 900; // Completar tambien la apertura antes del siguiente cierre.
 constexpr uint16_t MAX_CONTROL_GAP_MS = 20;
 constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
@@ -103,8 +91,6 @@ constexpr uint16_t ADC_LOW_CLIP = 5;
 constexpr uint16_t ADC_HIGH_CLIP_MARGIN = 6;
 constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669 con AVcc=5 V.
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
-constexpr uint16_t MIN_CALIBRATION_RANGE = 4; // Envolvente, cuentas ADC.
-constexpr uint16_t MIN_THRESHOLD_GAP = 2; // Histeresis minima, incluso con actividad de una cifra.
 constexpr uint16_t CALIBRATION_SIGNATURE = 0xE707; // Umbrales adaptativos sin pisos fijos: recalibrar.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");
@@ -465,55 +451,6 @@ class ThreeLevelControl {
   uint32_t sum_ = 0, last_ = 0;
   uint16_t count_ = 0, position_ = 0, meanX10_ = 0;
   bool initialized_ = false, ready_ = false;
-};
-
-// Algoritmo anterior, conservado para las pruebas historicas; no usado por FW=8.
-// Se exige reposo al entrar al modo EMG o recuperarse de una falla.
-class MuscleSwitch {
- public:
-  void reset() {
-    armed_ = closed_ = initialized_ = lowTracking_ = openingHold_ = false;
-    activityQ8_ = 0;
-  }
-  uint16_t activity() const { return uint16_t(activityQ8_ / 256); }
-  bool update(uint16_t value, const Thresholds &t, uint32_t now) {
-    if (!t.valid()) { reset(); return false; }
-    if (!initialized_) { initialized_ = true; last_ = now; return false; }
-    const uint32_t dt = now - last_;
-    if (!dt) return closed_;
-    last_ = now;
-    if (dt > Config::MAX_CONTROL_GAP_MS) {
-      reset(); initialized_ = true; last_ = now; return false;
-    }
-    // Peso normalizado: <=abrir ->0; >=cerrar ->1000; entre ambos, lineal.
-    const int32_t target = value <= t.open ? 0 : value >= t.close ? 256000L :
-        int32_t(value - t.open) * 256000L / (t.close - t.open);
-    const uint16_t tau = target > activityQ8_ ? Config::ACTIVITY_ATTACK_MS : Config::ACTIVITY_DECAY_MS;
-    activityQ8_ += (target - activityQ8_) * int32_t(dt) / (int32_t(tau) + int32_t(dt));
-    const bool low = value <= t.open && activity() <= Config::ACTIVITY_OPEN_LEVEL;
-    if (low && !lowTracking_) { lowTracking_ = true; lowSince_ = now; }
-    if (!low) lowTracking_ = false;
-    if (!closed_) {
-      if (lowTracking_ && uint32_t(now-lowSince_) >= Config::REST_ARM_MS) armed_ = true;
-      if (openingHold_ && uint32_t(now-openSince_) >= Config::MIN_OPEN_MS) openingHold_ = false;
-      if (armed_ && !openingHold_ && activity() >= Config::ACTIVITY_CLOSE_LEVEL) {
-        closed_ = true; closedSince_ = now; lowTracking_ = false;
-      }
-    } else if (lowTracking_ && uint32_t(now-lowSince_) >= Config::RELAX_CONFIRM_MS &&
-               uint32_t(now-closedSince_) >= Config::MIN_CLOSED_MS) {
-      closed_ = false;
-      openingHold_ = true;
-      openSince_ = now;
-    }
-    return closed_;
-  }
-
- private:
-  bool armed_ = false;
-  bool closed_ = false;
-  bool initialized_ = false, lowTracking_ = false, openingHold_ = false;
-  int32_t activityQ8_ = 0;
-  uint32_t last_ = 0, lowSince_ = 0, closedSince_ = 0, openSince_ = 0;
 };
 
 } // namespace Hand

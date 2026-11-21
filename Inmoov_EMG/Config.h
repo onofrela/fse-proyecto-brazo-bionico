@@ -15,18 +15,6 @@ constexpr uint16_t MOTION_STEP = 25;
 constexpr uint16_t MOTION_PERIOD_MS = 20;
 constexpr uint16_t UI_PERIOD_MS = 5;
 constexpr uint16_t DEBOUNCE_MS = 10;
-constexpr uint16_t CAL_PREPARE_MS = 3000;
-constexpr uint16_t CAL_REST_MS = 6000;
-constexpr uint16_t CAL_ACTIVE_MS = 10000;
-constexpr uint16_t CAL_SAMPLE_MS = 20;
-constexpr uint16_t ACTIVITY_ATTACK_MS = 120; // Un pico aislado de 100 ms no ordena cierre.
-constexpr uint16_t ACTIVITY_DECAY_MS = 180;
-constexpr uint16_t ACTIVITY_CLOSE_LEVEL = 650; // Ponderacion 0..1000.
-constexpr uint16_t ACTIVITY_OPEN_LEVEL = 200;
-constexpr uint16_t REST_ARM_MS = 100;
-constexpr uint16_t RELAX_CONFIRM_MS = 250;
-constexpr uint16_t MIN_CLOSED_MS = 900; // Permite completar la rampa de 780..800 ms.
-constexpr uint16_t MIN_OPEN_MS = 900; // Completar tambien la apertura antes del siguiente cierre.
 constexpr uint16_t MAX_CONTROL_GAP_MS = 20;
 constexpr uint16_t LED_BLINK_MS = 250;
 constexpr uint16_t PLOT_PERIOD_MS = 100;
@@ -89,8 +77,6 @@ constexpr uint16_t ADC_LOW_CLIP = 5;
 constexpr uint16_t ADC_HIGH_CLIP_MARGIN = 6;
 constexpr uint16_t ADC_HIGH_CLIP = SENSOR_MAX_ADC - ADC_HIGH_CLIP_MARGIN; // 669 con AVcc=5 V.
 constexpr uint16_t SIGNAL_SETTLE_SAMPLES = 2000; // 2 s continuos sin falla.
-constexpr uint16_t MIN_CALIBRATION_RANGE = 4; // Envolvente, cuentas ADC.
-constexpr uint16_t MIN_THRESHOLD_GAP = 2; // Histeresis minima, incluso con actividad de una cifra.
 constexpr uint16_t CALIBRATION_SIGNATURE = 0xE707; // Umbrales adaptativos sin pisos fijos: recalibrar.
 
 static_assert(ADC_REFERENCE_MV >= SENSOR_SUPPLY_MV, "Referencia ADC insuficiente");

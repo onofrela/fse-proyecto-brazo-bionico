@@ -24,15 +24,13 @@ Los comentarios `D01` a `D06` enlazan decisiones concretas con [la bitácora té
 | `SampleQueue.h` | Comunicación SPSC de muestras completas con marca de tiempo |
 | `Signal.h` | Salud, centrado DC, rectificación y media Q6 |
 | `SignalFilter.h` | HP30, rechazo de 60 Hz y LP200 a 1 kHz, fuera de ISR |
-| `Decision.h` | Ponderación temporal, histéresis, rearme y retención de cierre |
-| `Calibration.h` | Secuencia guiada y percentiles robustos de reposo/actividad |
+| `Decision.h` | Promedio de 200 muestras de envolvente y control fijo por tres niveles |
 | `Motion.h` | Rampa simultánea y conversión a pulsos |
 | `Inputs.h` | Antirrebote de botón y selector |
 | `Outputs.h/.cpp` | GPIO, RGB y cinco servos; deshace un arranque parcial |
 | `Storage.h/.cpp`, `CalibrationStore.h` | EEPROM verificada y guardado incremental |
 | `Diagnostics.h/.cpp` | Comandos y telemetría UART de baja prioridad |
 | `Application.h/.cpp` | Coordinación de módulos y recuperación de fallas |
-| `Control.h` | Fachada de compatibilidad de la lógica portable |
 | `tests/`, `scripts/` | Pruebas con fallas inducidas y compilación reproducible |
 
 [Diagrama conectado](docs/arquitectura.md) · [Matriz de requisitos](docs/requisitos.md) · [Resultados esperados y obtenidos](docs/resultados-pruebas.md) · [Protocolo físico](docs/pruebas-hardware.md).

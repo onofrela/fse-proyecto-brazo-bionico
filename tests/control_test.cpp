@@ -1,7 +1,9 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
-#include "../Inmoov_EMG/Control.h"
+#include "../Inmoov_EMG/Signal.h"
+#include "../Inmoov_EMG/Inputs.h"
+#include "../Inmoov_EMG/Motion.h"
 using namespace Hand;
 
 void testSignalFaults() {
@@ -18,7 +20,6 @@ void testSignalFaults() {
     assert(s.add(v,false)==0 && s.clipped() && !s.ready());
   for (unsigned i=0; i<2000; ++i) s.add(438,false);
   assert(s.ready() && s.add(438,false)<=1);
-  assert(Config::CALIBRATION_SIGNATURE == 0xE707);
 }
 
 double response(double hz) {
@@ -47,102 +48,6 @@ void testFrequencyResponse() {
            <<" 60Hz="<<response(60)<<" 100Hz="<<pass<<" 300Hz="<<response(300)<<"\n";
 }
 
-void testDwellAndHysteresis() {
-  const Thresholds t={8,12}; MuscleSwitch m; uint32_t now=0;
-  auto hold = [&](uint16_t value, uint16_t duration) {
-    bool closed=false;
-    for(uint16_t i=0; i<duration; ++i) {
-      closed=m.update(value,t,++now);
-      assert(m.activity()<=1000);
-    }
-    return closed;
-  };
-  assert(!hold(30,2000)); // No cerrar sin haber relajado primero.
-  assert(!hold(5,600));
-  assert(!hold(50,20)); // Impulso breve descartado por ponderacion.
-  assert(!hold(5,600));
-  assert(!hold(9,1200)); // Reposo de una cifra no debe cerrar.
-  assert(!hold(5,600));
-  assert(hold(14,200));
-  assert(m.activity()>=650);
-  assert(hold(5,200)); // No invertir la rampa al primer descenso.
-  assert(hold(5,600)); // Aun no se cumplen 900 ms desde la orden.
-  assert(!hold(5,300)); // Reposo confirmado: apertura.
-  assert(!hold(5,900));
-  assert(hold(32,200));
-  now+=100;
-  assert(!m.update(32,t,now)); // Hueco de control: apertura/rearme.
-  assert(m.activity()==0);
-  assert(!hold(32,200));
-  assert(!hold(5,600));
-  assert(!hold(5,900));
-  assert(hold(32,200));
-  assert(!m.update(32,Thresholds{0,0},++now));
-  MuscleSwitch wrap;
-  for(uint32_t i=0; i<200; ++i) assert(!wrap.update(5,t,0xFFFFFF80UL+i));
-  bool closed=false;
-  for(uint32_t i=200; i<350; ++i) closed=wrap.update(32,t,0xFFFFFF80UL+i);
-  assert(closed);
-}
-
-void testBurstyEnvelopeFullStroke() {
-  // Reproduccion funcional a partir de instantaneas a 10 Hz; no reconstruye
-  // la senal original de 1 kHz. Cada valor se mantiene 100 ms en el ensayo.
-  const uint16_t values[]={15,13,11,13,5,4,6,6,18,21,35,5,8,7,9,12,4,7,9,4,19,4,12,23,28,7};
-  MuscleSwitch detector; Motion hand; const Thresholds t={8,12}; uint32_t now=0;
-  uint16_t maximum=0;
-  auto tick=[&](uint16_t envelope) {
-    ++now;
-    hand.request(detector.update(envelope,t,now),now);
-    hand.update(now);
-    if(hand.position()>maximum) maximum=hand.position();
-  };
-  for(int i=0;i<600;++i) tick(5);
-  for(uint16_t value:values) for(int i=0;i<100;++i) tick(value);
-  assert(maximum==1000); // La orden permite completar el recorrido.
-  for(int i=0;i<2000;++i) tick(5);
-  assert(hand.isOpen());
-  std::cout<<"Replay de envolventes intermitentes: maximo="<<maximum<<"/1000; final abierto\n";
-}
-
-void runCalibration(Calibration &c, int mode=0, uint32_t origin=0) {
-  c.start(origin);
-  for(uint32_t ms=1; ms<=22000; ++ms) {
-    uint16_t value=5;
-    if(c.stage()==Calibration::REST && mode==2 && ms%1000<20) value=150;
-    if(c.stage()==Calibration::REST && mode==4) value=ms%200<100 ? 5 : 25;
-    if(c.stage()==Calibration::ACTIVE) {
-      value=(ms%2000<1000) ? 30 : 5;
-      if(mode==1) value=5;
-      if(mode==3) value=300;
-    }
-    c.update(origin+ms,value,true);
-  }
-}
-
-void testRobustCalibration() {
-  Calibration c;
-  runCalibration(c);
-  assert(c.stage()==Calibration::SUCCESS);
-  assert(c.rest95()==5 && c.active70()==31);
-  assert(c.thresholds().open==7 && c.thresholds().close==11);
-  runCalibration(c,1);
-  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::LOW_SEPARATION);
-  runCalibration(c,2);
-  assert(c.stage()==Calibration::SUCCESS);
-  runCalibration(c,3);
-  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::RANGE_EXCEEDED);
-  runCalibration(c,4);
-  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::LOW_SEPARATION);
-  runCalibration(c,0,0xFFFFF000UL); assert(c.stage()==Calibration::SUCCESS);
-  c.start(0); c.update(1,5,false);
-  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::SIGNAL_LOST);
-  c.start(0);
-  for(uint32_t ms=100; ms<=9000; ms+=100) c.update(ms,5,true);
-  assert(c.stage()==Calibration::FAILED && c.reason()==Calibration::TOO_FEW_SAMPLES);
-  c.cancel(); assert(!c.running() && c.stage()==Calibration::IDLE);
-}
-
 void testWholeHandMotion() {
   Motion hand;
   assert(hand.isOpen() && hand.request(true,0));
@@ -155,71 +60,19 @@ void testWholeHandMotion() {
   for(uint32_t ms=820; ms<=1580; ms+=20) hand.update(ms);
   assert(hand.isOpen() && hand.position()==0);
   assert(pulse(250,2000,1000)==1750);
-  Motion wrap; wrap.request(true,0xFFFFFFF0UL);
-  assert(wrap.update(4) && wrap.position()==50);
-  DebouncedInput b; b.begin(false,0);
-  assert(!b.update(true,5)); assert(b.update(true,15)); assert(!b.update(true,100));
-}
-
-void testSignalCalibrationControl() {
-  Calibration c; Ad8232Signal signal; Motion hand; MuscleSwitch muscle;
-  for(int i=0; i<2000; ++i) signal.add(338,false);
-  c.start(0);
-  for(uint32_t ms=1; ms<=22000; ++ms) {
-    const bool active=c.stage()==Calibration::ACTIVE && ms%2000<1000;
-    const int wave=int((active ? 70 : 2)*std::sin(2*3.141592653589793*100*ms/1000));
-    const uint16_t envelope=signal.add(uint16_t(338+wave),false);
-    c.update(ms,envelope,signal.ready());
-  }
-  assert(c.stage()==Calibration::SUCCESS);
-  for(uint32_t ms=23001; ms<23150; ++ms) muscle.update(0,c.thresholds(),ms);
-  for(uint32_t ms=23150; ms<23400; ++ms) hand.request(muscle.update(50,c.thresholds(),ms),ms);
-  assert(hand.closed());
-  signal.add(338,true);
-  if(!signal.ready()) { muscle.reset(); hand.request(false,23401); }
-  assert(!hand.closed() && !muscle.update(50,c.thresholds(),23402));
-}
-
-void testLowAmplitudeAndFullCycles() {
-  Calibration cal; cal.start(0);
-  for (uint32_t ms=1; ms<=22000; ++ms) {
-    // Reposo P95=3, actividad P70=7 por los bins de dos cuentas.
-    const uint16_t value = cal.stage()==Calibration::ACTIVE ?
-        uint16_t((ms/100)%3==0 ? 4 : (ms/100)%3==1 ? 6 : 8) :
-        uint16_t((ms/100)%10==0 ? 3 : 0);
-    cal.update(ms,value,true);
-  }
-  assert(cal.stage()==Calibration::SUCCESS);
-  assert(cal.rest95()==3 && cal.thresholds().open==3 && cal.thresholds().close==5);
-  MuscleSwitch detector; Motion hand; uint32_t now=0;
-  auto feed=[&](uint16_t value, uint16_t duration) {
-    for (uint16_t i=0; i<duration; ++i) {
-      ++now; hand.request(detector.update(value,cal.thresholds(),now),now); hand.update(now);
-    }
-  };
-  feed(0,700); feed(17,100); feed(0,700);
-  assert(hand.isOpen()); // Pico aislado de 100 ms no cierra.
-  feed(6,1000);
-  assert(hand.position()==1000);
-  feed(0,550); // Ya ordeno abrir; todavia no termino de abrir.
-  assert(!hand.closed() && hand.position()>0);
-  feed(17,800);
-  assert(hand.isOpen()); // Actividad nueva no invierte la apertura a medio camino.
-  feed(17,1100);
-  assert(hand.position()==1000);
-  feed(0,2000); assert(hand.isOpen());
   for (uint8_t n=0; n<Config::SERVO_COUNT; ++n) {
     assert(Config::OPEN_US[n]==(n < 2 ? 544 : 2400));
     assert(Config::CLOSED_US[n]==(n < 2 ? 2400 : 544));
     assert(pulse(0,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::OPEN_US[n]);
     assert(pulse(1000,Config::OPEN_US[n],Config::CLOSED_US[n])==Config::CLOSED_US[n]);
   }
-  std::cout << "Amplitud baja: umbrales 3/5, pico rechazado, apertura y cierre completos con direccion por dedo\n";
+  Motion wrap; wrap.request(true,0xFFFFFFF0UL);
+  assert(wrap.update(4) && wrap.position()==50);
+  DebouncedInput b; b.begin(false,0);
+  assert(!b.update(true,5)); assert(b.update(true,15)); assert(!b.update(true,100));
 }
 
 int main() {
-  testLowAmplitudeAndFullCycles();
-  testSignalFaults(); testFrequencyResponse(); testDwellAndHysteresis();
-  testRobustCalibration(); testWholeHandMotion(); testSignalCalibrationControl(); testBurstyEnvelopeFullStroke();
-  std::cout<<"OK: filtro Q12/Q6, fallas, calibracion robusta, histeresis y movimiento simultaneo de mano completa\n";
+  testSignalFaults(); testFrequencyResponse(); testWholeHandMotion();
+  std::cout<<"OK: senal, filtro Q12/Q6, fallas, movimiento de mano completa y antirrebote\n";
 }

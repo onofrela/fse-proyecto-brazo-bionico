@@ -13,7 +13,6 @@ SUITES = {
     "control": ["tests/control_test.cpp"],
     "levels": ["tests/levels_test.cpp"],
     "filter": ["tests/filter_test.cpp"],
-    "recording": ["tests/recording_test.cpp"],
     "integration": ["tests/integration_test.cpp", "Inmoov_EMG/Application.cpp"],
     "storage": ["tests/storage_test.cpp"],
     "drivers": ["tests/drivers_test.cpp", "Inmoov_EMG/Outputs.cpp", "Inmoov_EMG/Diagnostics.cpp"],
@@ -76,7 +75,7 @@ def main():
         (BUILD / (name + ".txt")).write_text(output, encoding="utf-8")
         if name == "control":
             records.append(["UNIT-01", "regresion con aserciones activas",
-                            "utilidades historicas de filtro/calibracion/ponderacion y rampa", "PASA"])
+                            "senal, respuesta del filtro, rampa y antirrebote", "PASA"])
         for line in output.splitlines():
             fields = line.split("|")
             if len(fields) == 4:
@@ -107,10 +106,10 @@ def main():
               "Las pruebas C++ usan entradas sinteticas. Los drivers GPIO/Servo/UART usan dobles; "
               "Application, cola, filtros y persistencia por bytes ejecutan el codigo del proyecto. "
               "La ISR AVR se verifica por compilacion; estas pruebas no simulan interrupciones de hardware "
-              "ni demuestran ausencia de jitter o carreras en una placa. FW8 usa ThreeLevelControl, sin calibracion. Los casos de Calibration y MuscleSwitch son regresiones de utilidades anteriores, no el control activo.\n\n"
+              "ni demuestran ausencia de jitter o carreras en una placa. FW8 usa ThreeLevelControl, sin calibracion.\n\n"
               "LAT-SW termina al ordenar el pulso (ver LAT-SW; no demuestra R1 de 50 ms); R2-SW mide el recorrido ordenado; R9-SW usa "
               "un bucle ideal de 1 ms. Son comparaciones de software contra los requisitos del proyecto, "
-              "no mediciones de PWM, movimiento o consumo. REPLAY-30S mantiene cada instantanea 100 ms y omite sus fallas solo en esa simulacion exploratoria; no valida la adquisicion ni recalcula el filtro. Los CSV reales se leen sin recalcular sus filtros; "
+              "no mediciones de PWM, movimiento o consumo. Los CSV reales se leen sin recalcular sus filtros; "
               "los hashes verifican la evidencia original y no validan fisicamente el firmware posterior.\n\n"
               "| Caso | Resultado esperado | Resultado obtenido | Estado |\n"
               "| --- | --- | --- | --- |\n")
