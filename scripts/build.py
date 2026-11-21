@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compila UNO con versiones verificadas. No instala ni carga firmware."""
+"""Regenera el unico sketch de firmware y compila UNO. No instala ni carga firmware."""
 from pathlib import Path
 import argparse
 import json
@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+SKETCH_DIR = ROOT / "Inmoov_EMG"
 CORE = "1.8.6"
 SERVO = "1.2.2"
 
@@ -76,7 +77,7 @@ def main():
         flags.append("-DEMG_SAMPLE_PROBE=0")
     if flags:
         command += ["--build-property", "compiler.cpp.extra_flags=" + " ".join(flags)]
-    command.append("Inmoov_EMG")
+    command.append(str(SKETCH_DIR))
     output = run(command)
     (build / (variant + ".txt")).write_text(output, encoding="utf-8")
     print(output)

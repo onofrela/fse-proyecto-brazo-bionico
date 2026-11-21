@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
-"""Genera Inmoov_EMG.ino autocontenido y su copia para Arduino IDE."""
+"""Genera el unico sketch autocontenido de firmware: Inmoov_EMG/Inmoov_EMG.ino."""
 from pathlib import Path
 import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "Inmoov_EMG"
-DESTINATIONS = [
-    SOURCE / "Inmoov_EMG.ino",
-    ROOT / "Arduino_IDE/Inmoov_EMG_Servos_Invertidos/Inmoov_EMG_Servos_Invertidos.ino",
-]
+DESTINATION = SOURCE / "Inmoov_EMG.ino"
 LOCAL_INCLUDE = re.compile(r'^\s*#include "([^"\n]+)"\s*$', re.MULTILINE)
 MODULE_START = "#ifndef ARDUINO // INMOOV_NATIVE_MODULE\n"
 MODULE_END = "#endif // INMOOV_NATIVE_MODULE"
@@ -54,10 +51,8 @@ void loop() { application.tick(millis()); }
     for path, content in headers + implementations:
         sections.append(f"// ===== {path.name} =====\n{content}\n")
     sections.append("// ===== Entrada Arduino =====\n" + sketch)
-    for destination in DESTINATIONS:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text("\n".join(sections), encoding="utf-8")
-        print(destination.relative_to(ROOT))
+    DESTINATION.write_text("\n".join(sections), encoding="utf-8")
+    print(DESTINATION.relative_to(ROOT))
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ El módulo AD8232 presenta una señal muy variable y todavía se investiga la ca
 
 ## Código modular
 
-`Inmoov_EMG/Inmoov_EMG.ino` contiene el firmware completo, incluida la configuración de los servos, para abrirlo directamente en Arduino IDE. Se genera desde los módulos `.h` y `.cpp` con `python scripts/export_ino.py`; los `.cpp` se compilan por separado solo en las pruebas nativas para evitar definiciones duplicadas en Arduino.
+[`Inmoov_EMG/Inmoov_EMG.ino`](Inmoov_EMG/Inmoov_EMG.ino) es el único sketch generado del firmware y contiene el programa completo, incluida la configuración de los servos, para abrirlo directamente en Arduino IDE. Se genera desde los módulos `.h` y `.cpp` con `python scripts/export_ino.py`; edita esos módulos y regenera el sketch para conservar los cambios. Los `.cpp` se compilan por separado solo en las pruebas nativas para evitar definiciones duplicadas en Arduino.
 Los comentarios `D01` a `D06` enlazan decisiones concretas con [la bitácora técnica](docs/bitacora.md).
 
 | Módulo | Responsabilidad |
@@ -74,7 +74,7 @@ La guía genérica de SparkFun conecta LO+/LO− a D10/D11; aquí esos pines ya 
 
 ## Carga y primera prueba
 
-Abre [Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) para cargar el firmware completo y la inversión de medio, anular y meñique. No requiere copiar los módulos `.h` y `.cpp`. También se genera una copia idéntica en [Arduino_IDE](Arduino_IDE/README.md).
+Abre [Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) para cargar el firmware completo y la inversión de medio, anular y meñique. Conserva el nombre de la carpeta `Inmoov_EMG` y del archivo `Inmoov_EMG.ino`. No requiere copiar los módulos `.h` y `.cpp`.
 
 1. Abre `Inmoov_EMG/Inmoov_EMG.ino` en Arduino IDE. Instala la biblioteca **Servo** y selecciona **Arduino Uno** y el puerto correcto. EEPROM viene con el núcleo AVR.
 2. Los valores `OPEN_US` y `CLOSED_US` están incluidos en el propio `.ino`. Medio (D6), anular (D10) y meñique (D11) tienen los extremos intercambiados para invertir su giro: apertura a 2400 us y cierre a 544 us. Si mantienes los módulos como fuente, ajusta `Config.h` y regenera con `python scripts/export_ino.py`. Ajusta los extremos con los tensores sueltos.
@@ -167,7 +167,7 @@ python scripts/build.py
 python scripts/build.py --no-debug --no-probe
 ```
 
-`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Verifica evidencia con `python scripts/verificar_mediciones.py --git-ref HEAD`. En Bash también puede usarse `bash scripts/verify.sh`.
+`build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`, y compila su carpeta. Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git). `test.py` requiere Python 3, las dependencias de `Inmoov_EMG/analizador_senal/requirements.txt` y g++, clang++ o Visual Studio C++ con Windows SDK; descubre el entorno de MSVC automáticamente. Usa C++14 y regenera `docs/resultados-pruebas.md`; `--native-only` omite el analizador Python. Verifica evidencia con `python scripts/verificar_mediciones.py --git-ref HEAD`. En Bash también puede usarse `bash scripts/verify.sh`.
 
 Para cargar: Arduino IDE → abrir `Inmoov_EMG/Inmoov_EMG.ino` → Arduino Uno → puerto de la placa → Subir. O, después de compilar con CLI:
 
