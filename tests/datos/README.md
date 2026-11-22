@@ -22,5 +22,5 @@ Comprueba destinos y rampas en reposo/medio/alto/reposo/alto/reposo.
 No reconstruye adquisicion, filtro ni muestras fisicas; no valida R1 ni R6.
 
 Las capturas reales del AD8232 son datos biometricos/de salud y ya no se
-versionan. Sus resultados se resumen en el informe del Avance 4. El historial
-publicado permanece sin reescribir.
+versionan. Sus resultados se resumen en el informe del Avance 4. El contenido de las revisiones históricas se conserva, incluso después de
+la reconstrucción local de autoría; esas revisiones todavía contienen capturas.

@@ -52,9 +52,9 @@ La implementación conserva la plataforma y los pines de actuadores del proyecto
 
 La conexión de alimentación de un EMG genérico al riel de 5 V **no corresponde a este AD8232**.
 
-Versión actual: **FW8**, entrega final con control fijo por tres niveles, sin calibración. Se etiquetará **v1.0.0** al terminar la rama `limpieza-fw8`. [Control por promedios](docs/control-senal.md) · [Datos sintéticos de prueba](tests/datos/README.md).
+Versión del repositorio: **v1.0.1**, registrada en [VERSION](VERSION), sobre la rama `main`. El firmware mantiene **FW8**, con control fijo por tres niveles y sin calibración. `v1.0.0` conserva el cierre de FW8; `v1.0.1` incorpora las precisiones posteriores de alimentación y documentación. [Control por promedios](docs/control-senal.md) · [Datos sintéticos de prueba](tests/datos/README.md).
 
-Las capturas reales del AD8232 ya no se versionan porque contienen datos biométricos/de salud: el ECG puede identificar a la persona y este repositorio es público. Sus resultados se resumen en el informe del Avance 4. Se retiran del árbol actual sin reescribir el historial público; las revisiones anteriores aún las contienen. El analizador guarda las sesiones nuevas fuera del repo, en `Path.home() / "registros-emg"`, con identificador aleatorio.
+Las capturas reales del AD8232 ya no se versionan porque contienen datos biométricos/de salud: el ECG puede identificar a la persona y este repositorio es público. Sus resultados se resumen en el informe del Avance 4. Se retiraron del árbol actual; las revisiones anteriores aún las contienen. La reconstrucción local de autoría conserva esos archivos históricos y sus bytes. El analizador guarda las sesiones nuevas fuera del repo, en `Path.home() / "registros-emg"`, con identificador aleatorio.
 
 El analizador solicita consentimiento y contraseña por sesión, cifra los registros con AES-256-GCM y verifica su integridad con HMAC-SHA256. No guarda contraseñas, omite la hora absoluta por defecto y no exporta PNG automáticamente. Consulta [instalación, formato, verificación, descifrado y conservación](Inmoov_EMG/analizador_senal/README.md). No publiques registros ni contraseñas.
 
@@ -209,7 +209,7 @@ Memoria obtenida al ejecutar `python scripts/build.py` el **2026-11-21**, para U
 
 Son cifras del compilador, conservadas en `build/normal.txt` y `build/depuracion.txt`; el margen restante no mide el máximo uso de pila en ejecución.
 
-`test.py` descubre el entorno de MSVC automáticamente. Prueba el driver UART con `EMG_SERIAL_DEBUG=1` y comprueba por separado que la configuración normal no inicia, lee ni escribe UART. Por defecto regenera `docs/resultados-pruebas.md`; durante esta limpieza se usa siempre `--report build/resultados-pruebas.md` hasta el paso 12. `--native-only` omite el analizador Python. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); no validan señales físicas.
+`test.py` descubre el entorno de MSVC automáticamente. Prueba el driver UART con `EMG_SERIAL_DEBUG=1` y comprueba por separado que la configuración normal no inicia, lee ni escribe UART. Por defecto regenera `docs/resultados-pruebas.md`; para comprobar el proyecto sin modificar el informe histórico, usa `--report build/resultados-pruebas.md`. `--native-only` omite el analizador Python. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); no validan señales físicas.
 
 Para cargar la variante que necesita el analizador, cambia el comando de Inicio rápido a `--input-dir build/depuracion`. Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. Ambas variantes ejecutan FW8 sin calibración y conservan el modo manual con D9/D8.
 
@@ -217,4 +217,6 @@ Resultados y límites de validación están en [la tabla de pruebas](docs/result
 
 ## Historial de versiones
 
-La base modular recibida es `a37d208`. Los cambios posteriores se separan en mediciones, filtro, señal, calibración, decisión, telemetría, integridad de evidencia y consolidación de `v0.6.0`. Las etiquetas y fechas se detallan en [versiones](docs/versiones.md). Las capturas y sus hashes pertenecen al historial anterior; ya no se versionan datos biométricos en el árbol actual. Sus resultados se resumen en el informe del Avance 4.
+Autor y committer de los commits del proyecto: **Leonardo Arroyo Onofre** (`arroyoonofrel@gmail.com`). Las etiquetas anotadas usan la misma identidad. Se conservan las atribuciones del código de origen.
+
+La base modular recibida se conserva con la etiqueta `v0.5.0`. Los cambios posteriores se separan en mediciones, filtro, señal, calibración, decisión, telemetría, integridad de evidencia y consolidación de `v0.6.0`. Las etiquetas y fechas se detallan en [versiones](docs/versiones.md). Las capturas y sus hashes pertenecen al historial anterior; ya no se versionan datos biométricos en el árbol actual. Sus resultados se resumen en el informe del Avance 4.

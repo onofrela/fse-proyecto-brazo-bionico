@@ -1,6 +1,6 @@
 # Modularizacion paso a paso
 
-Referencia histórica de la modularización recibida hasta a37d208. Los cambios de calibración, firma y filtrado de v0.6.0 se documentan en control-senal.md y versiones.md.
+Referencia histórica de la modularización recibida hasta la etiqueta `v0.5.0`. Los cambios de calibración, firma y filtrado de v0.6.0 se documentan en control-senal.md y versiones.md.
 
 Registro de la extraccion e integracion de los modulos desde el codigo base. Cada paso describe su responsabilidad y las verificaciones de software; las mediciones fisicas se documentan por separado.
 

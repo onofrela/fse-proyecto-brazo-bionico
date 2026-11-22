@@ -18,7 +18,7 @@ La demo genera datos sinteticos de los tres niveles y fallas; no reproduce el fi
 
 ## Datos biométricos, consentimiento y ubicación
 
-El AD8232 es un módulo de ECG. La señal cardíaca puede identificar a la persona; señal, eventos, etiquetas y estadísticas se tratan como datos biométricos/de salud. El repositorio es público: no subas capturas, gráficas ni contraseñas. Las capturas reales de `docs/mediciones/` se retiraron del árbol actual sin reescribir el historial; las versiones antiguas todavía las contienen. Las pruebas actuales usan exclusivamente datos sintéticos.
+El AD8232 es un módulo de ECG. La señal cardíaca puede identificar a la persona; señal, eventos, etiquetas y estadísticas se tratan como datos biométricos/de salud. El repositorio es público: no subas capturas, gráficas ni contraseñas. Las capturas reales de `docs/mediciones/` se retiraron del árbol actual; las versiones antiguas todavía las contienen. La reconstrucción local de autoría conserva sus bytes históricos. Las pruebas actuales usan exclusivamente datos sintéticos.
 
 La salida predeterminada es `Path.home() / "registros-emg"`, fuera del repositorio, con subcarpetas `registro_<UUID aleatorio>`, sin nombre de persona ni fecha en el identificador. `--output RUTA` permite elegir otra base; usa una carpeta privada fuera del repo y revisa si se sincroniza con terceros. Los tiempos `device_ms`/`time_s` son relativos; el sistema de archivos conserva sus propias fechas aunque no se incluya `host_utc`. No se guarda el nombre del puerto en el resumen.
 

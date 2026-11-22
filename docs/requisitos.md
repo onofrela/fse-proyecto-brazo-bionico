@@ -9,7 +9,7 @@ Esta matriz evalúa los requisitos del proyecto sobre la base Arduino disponible
 | Errores en cada llamada al sistema | No hay syscalls en bare-metal. ADC con timeout/lectura de registros, Servo attach y estado comprobados, EEPROM verificada, UART read/write/snprintf comprobados | Implementado para APIs con estado. GPIO/Servo write son void y no pueden confirmar funcionamiento físico; scripts comprueban códigos de salida |
 | Comentarios útiles en español | Contratos de cola, propiedad de datos, ISR y D01–D11 | Implementado |
 | Pruebas con esperado/obtenido y >=2 fallas | `resultados-pruebas.md`, generado por `scripts/test.py` | Pruebas nativas ejecutadas; incluye recuperación de contacto y pérdida de ADC |
-| Historial legible y etiquetas | Serie histórica hasta v0.6.0 y limpieza FW8 en `limpieza-fw8` | Etapas descritas en versiones.md; v1.0.0 pendiente del commit final y etiquetado por el orquestador |
+| Historial legible y etiquetas | Historial consolidado en `main`, con autoría de Leonardo Arroyo Onofre y fechas originales preservadas | Etiquetas anotadas históricas, cierre FW8 en v1.0.0 y revisión documental v1.0.1; detalle en versiones.md |
 | Diagrama conectado y flujo completo | `arquitectura.md`, E2E-LEVEL y HW-MANUAL | Flujo software integrado y probado con dobles; demostración HW pendiente |
 | Comunicación, IPC y sincronización | `SampleQueue.h`, `Acquisition.cpp`, IPC-TIME y LEVEL-SAFETY | Cola compartida SPSC y secciones atómicas; sin hilos/procesos porque el diseño utiliza bare-metal. No cumple literalmente IPC de un SO |
 | Inicio al encender | `setup()` → `Application::begin`, E2E-LEVEL | Implementado sin espera USB ni calibración; confirmar desconectando PC en placa |
