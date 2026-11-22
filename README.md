@@ -1,48 +1,110 @@
 # Mano InMoov con AD8232 (ECG, 3.3 V)
 
-## Inicio rápido
+## Cómo correr el programa
 
-Desde la raíz del repositorio, con **Python 3.10+**, pip, **Arduino CLI 1.1.1** en PATH y un compilador C++ (g++, clang++ o Visual Studio C++ con Windows SDK). La interfaz gráfica del analizador también requiere Tk.
+El archivo [Inmoov_EMG/Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) ya contiene el firmware completo como **sketch autocontenido listo para abrir en Arduino IDE**. Al pulsar **Subir**, el IDE lo compila y lo carga al Arduino. Para usar esta versión basta con ese archivo, el IDE y el montaje descrito aquí; los scripts de regeneración y pruebas se explican en [Cómo compilar después de modificar el código](#cómo-compilar-después-de-modificar-el-código).
 
-1. **Instala las dependencias.** En Bash: `bash scripts/bootstrap.sh` (usa `python3`; puedes seleccionar otro intérprete con `PYTHON`). En PowerShell:
+### Requisitos
 
-   ```powershell
-   arduino-cli core update-index
-   if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar el indice" }
-   arduino-cli core install arduino:avr@1.8.6
-   if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar AVR" }
-   arduino-cli lib install Servo@1.2.2
-   if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Servo" }
-   python -m pip install -r Inmoov_EMG/analizador_senal/requirements.txt
-   if ($LASTEXITCODE -ne 0) { throw "No se pudieron instalar las dependencias Python" }
-   ```
+- **Arduino UNO R3**, computadora y cable USB de datos compatible con su conector USB-B.
+- **Arduino IDE** instalado, con el paquete **Arduino AVR Boards 1.8.6** y la biblioteca **Servo 1.2.2**. EEPROM viene incluida en el paquete AVR.
+- El archivo **`Inmoov_EMG.ino` dentro de una carpeta llamada `Inmoov_EMG`**. Puedes usar directamente la carpeta del repositorio; el sketch también se puede copiar por sí solo a otra carpeta con ese nombre.
+- **Mano InMoov ensamblada**, cinco servos **MG995**, sus poleas y tendones instalados, con el recorrido mecánico libre. Deja los tensores sueltos para la primera comprobación de sentido y extremos.
+- **Módulo AD8232 de UNIT Electronics**, cable y electrodos, pulsador para D8, selector para D9 y cables de conexión.
+- **Alimentación de los servos:** paquete preparado de cuatro celdas 18650 en configuración **2S2P** (dos portapilas de dos celdas en serie, conectados entre sí en paralelo; 7.4 V nominales) y **regulador a 5 V** dimensionado para los cinco servos.
+- **Alimentación autónoma del Arduino:** pila cuadrada de **9 V** con adaptador al conector de alimentación del UNO. El módulo AD8232 toma **3.3 V del Arduino**.
 
-2. **Ejecuta las pruebas**, guardando el informe en `build/` para conservar el informe histórico:
+### 1. Preparar la mano y el archivo
 
-   ```powershell
-   python scripts/test.py --report build/resultados-pruebas.md
-   ```
+Con las baterías y el USB desconectados, comprueba que la mano esté ensamblada y que los dedos puedan recorrer su trayectoria sin trabarse. Identifica el servo de cada dedo antes de conectar sus señales. La primera prueba se hace con los tensores sueltos; después se ajustan a la apertura y al cierre reales del mecanismo.
 
-   Debe terminar con código 0. Si faltan `pyserial` o `cryptography`, avisa al inicio e indica cómo instalarlos; `--native-only` omite las pruebas Python y esa comprobación.
+Conserva los nombres `Inmoov_EMG/Inmoov_EMG.ino`. La configuración de pines y de los cinco servos ya está incluida en el archivo. Medio, anular y meñique tienen el sentido de giro invertido respecto de pulgar e índice.
 
-3. **Compila FW8** para Arduino Uno:
+### 2. Cargar el programa desde Arduino IDE
 
-   ```powershell
-   python scripts/build.py
-   ```
+1. Instala y abre [Arduino IDE](https://www.arduino.cc/en/software). En el **Gestor de placas**, busca **Arduino AVR Boards** e instala la versión **1.8.6**.
+2. En **Herramientas → Administrar bibliotecas**, busca **Servo**, de Arduino, e instala la versión **1.2.2**. No necesitas instalar EEPROM por separado. Consulta la [guía de bibliotecas del IDE](https://support.arduino.cc/hc/en-us/articles/5145457742236-Install-libraries-in-the-Arduino-IDE).
+3. Mantén apagada la alimentación de los servos y los electrodos desconectados del cuerpo. Conecta el UNO a la computadora por USB y abre **`Inmoov_EMG/Inmoov_EMG.ino`**.
+4. Selecciona **Arduino Uno**, del paquete AVR, y el **puerto** correspondiente a la placa, desde el selector del IDE o **Herramientas → Placa / Puerto**.
+5. Pulsa **Subir** y espera la confirmación de carga terminada. El programa queda guardado en el Arduino y vuelve a ejecutarse al encenderlo. Si falla la carga, revisa placa, puerto y cable de datos según la [guía de carga de Arduino](https://support.arduino.cc/hc/en-us/articles/4733418441116-Upload-a-sketch-in-Arduino-IDE).
+6. Desconecta el USB antes de realizar el cableado y pasar a la alimentación por baterías.
 
-   Debe terminar con código 0 y generar `build/normal` (sin UART) y `build/depuracion` (para el analizador), además de sus logs. No carga la placa.
+### 3. Conectar la alimentación, los servos y el módulo
 
-4. **Prepara el cableado mínimo**, sin energizar: AD8232 a **3.3 V**, GND común, OUTPUT→A0, LO+→A1, LO−→A2 y SDN→3.3 V; señales de servos pulgar/índice/medio/anular/meñique→D3/D5/D6/D10/D11. Los servos son MG995: aliméntalos con **4 celdas 18650 (dos portapilas de dos celdas en serie (7.4 V nominales cada uno), conectados entre sí en paralelo: 7.4 V nominales y el doble de capacidad) y un regulador a 5 V** dimensionado para su corriente, y alimenta el Arduino aparte con una **pila cuadrada de 9 V** si no lo conectas a la computadora; nunca los servos desde el pin 5V ni el USB del UNO. Pulsador D8→GND, selector D9→GND para manual (abierto para EMG). **Sin LED RGB**; D7/D12/D13 quedan libres. Consulta [el detalle eléctrico](#compatibilidad-del-sensor-y-alimentación) y [la tabla de señales](#cableado-de-señales).
+Haz estas conexiones **sin energizar el montaje**. El regulador entrega **5 V a los servos**; la pila de **9 V alimenta al UNO por su conector de alimentación**; el pin **3.3V del UNO alimenta al AD8232**. Consulta también [alimentación y límites eléctricos](#compatibilidad-del-sensor-y-alimentación).
 
-5. **Carga y comprueba.** Sustituye COM3 por el puerto real; durante la carga USB mantén los electrodos desconectados del cuerpo:
+**Tierra común:** conecta entre sí el **negativo de la fuente de baterías de los servos**, la tierra del regulador, los **GND de los cinco servos**, un **GND del Arduino** y el **GND del AD8232**. El negativo de la pila de 9 V también queda unido a esa misma tierra a través del adaptador de alimentación del UNO. Esta conexión da una referencia común a las señales del Arduino; los positivos conservan sus conexiones separadas de 5 V, 9 V y 3.3 V.
 
-   ```powershell
-   arduino-cli upload --fqbn arduino:avr:uno --port COM3 --input-dir build/normal Inmoov_EMG
-   if ($LASTEXITCODE -ne 0) { throw "No se pudo cargar el firmware" }
-   ```
+<a id="cableado-de-señales"></a>
 
-   Si `build.py` generó `build/arduino-local.yaml`, añade `--config-file build/arduino-local.yaml` a `upload`; con una configuración propia, usa el mismo YAML que al compilar. También puedes abrir `Inmoov_EMG/Inmoov_EMG.ino` en Arduino IDE, seleccionar Arduino Uno y subir. Prueba primero con tensores sueltos en manual: cada pulsación D8 alterna cierre/apertura. En EMG espera ~2 s de señal estable y otras 200 muestras (~200 ms); FW8 inicia automáticamente, **sin calibración**. Véase [carga y primera prueba](#carga-y-primera-prueba).
+#### Tabla de pinout
+
+| Componente / terminal | Conectar a | Función |
+| --- | --- | --- |
+| Pila de 9 V | Conector de alimentación del UNO, con adaptador de centro positivo | Alimentación del Arduino; no conectar 9 V a `5V` ni a `3.3V` |
+| Paquete 18650 2S2P | Entrada del regulador de 5 V, respetando polaridad | Fuente de potencia de los servos |
+| Positivo de alimentación de cada servo | Salida **+5 V del regulador** | Potencia de los cinco MG995; no usar el pin `5V` ni el USB del UNO |
+| GND de cada servo y tierra de la fuente/regulador | **GND común**, unido a GND del UNO | Retorno de potencia y referencia de las señales |
+| AD8232 `3.3V` | **3.3V del UNO** | Alimentación del módulo; no conectar al riel de servos |
+| AD8232 `GND` | **GND común** | Referencia compartida con Arduino y servos |
+| AD8232 `OUTPUT` | **A0** | Entrada analógica de la señal |
+| AD8232 `LO+` | **A1** | Detección de pérdida de contacto, sin pull-up de 5 V |
+| AD8232 `LO−` | **A2** | Detección de pérdida de contacto, sin pull-up de 5 V |
+| AD8232 `SDN` | **3.3V del UNO** | Mantener habilitado el módulo |
+| Señal del servo del pulgar | **D3** | Orden de posición del pulgar |
+| Señal del servo del índice | **D5** | Orden de posición del índice |
+| Señal del servo del medio | **D6** | Orden de posición, sentido invertido |
+| Señal del servo del anular | **D10** | Orden de posición, sentido invertido |
+| Señal del servo del meñique | **D11** | Orden de posición, sentido invertido |
+| Pulsador normalmente abierto | Entre **D8 y GND** | Cada pulsación alterna cierre/apertura en manual; `INPUT_PULLUP` |
+| Selector de modo | Entre **D9 y GND** | Cerrado a GND = manual; abierto = control por señal; `INPUT_PULLUP` |
+| Cable de electrodos `RA` / `LA` / `RL` | Conector de electrodos del AD8232, según las marcas del módulo | Entradas de señal y referencia corporal; no son pines de alimentación |
+| D7 / D12 / D13 | Sin conexión requerida | Pines libres; el montaje no usa LED RGB |
+| D2 | Sin conexión requerida para uso normal | Sonda de muestreo opcional; conmuta en cada conversión ADC |
+| D0 / D1 | Sin conexión externa requerida para uso normal | Diagnóstico UART por USB en la variante de depuración; no conectar servos aquí |
+
+En cada servo distingue **señal, positivo y GND** según su conector; los tres cables cumplen funciones distintas. El orden de dedos del firmware es pulgar, índice, medio, anular y meñique. Los servos reciben energía del regulador y solo su señal va al pin digital indicado.
+
+En el AD8232 sigue las **etiquetas impresas del módulo**, no la posición de los pines de otra tarjeta. En este proyecto `LO+` y `LO−` van a **A1/A2**: D10/D11 ya están ocupados por los servos. Conecta el cable de electrodos al módulo e identifica `RA`, `LA` y `RL` conforme a su guía; esos terminales no se unen a GND ni a la alimentación. La [figura y la tabla de colocación](#5-colocar-los-electrodos-y-usar-el-control-por-señal) indican cómo van los parches y los cables de este montaje. La función eléctrica del AD8232 se detalla en [compatibilidad del sensor](#compatibilidad-del-sensor-y-alimentación).
+
+Antes de energizar los servos, verifica con multímetro que la salida del regulador esté ajustada a **5 V** y que la polaridad y la tierra común sean correctas. El paquete 2S2P no se conecta directamente a los servos. Para el UNO, la pila se conecta mediante el adaptador a su entrada de alimentación, como describe la [documentación del UNO R3](https://docs.arduino.cc/hardware/uno-rev3/).
+
+### 4. Encender y comprobar el funcionamiento
+
+1. Deja **D9 conectado a GND** para arrancar en **modo manual**, con los tensores sueltos y sin obstruir el mecanismo. Alimenta el Arduino con su pila y habilita la fuente regulada de los servos. Al iniciar, el firmware ordena apertura.
+2. Pulsa el botón de **D8** una vez para cerrar y otra para abrir; mantenerlo presionado no repite la orden. Comprueba que cada señal corresponda a su dedo y que el giro de medio, anular y meñique sea el previsto. Si un dedo se traba o tira en sentido incorrecto, corta la alimentación de los servos antes de corregir el montaje.
+3. Ajusta los tensores al recorrido comprobado. Los extremos de 544/2400 us son órdenes del firmware; el recorrido real depende de cada servo y del mecanismo. Si necesitas cambiar extremos o pines, sigue [Cómo compilar después de modificar el código](#cómo-compilar-después-de-modificar-el-código).
+4. Cuando el modo manual funcione y los tensores estén ajustados, continúa con [la colocación de electrodos y el control por señal](#5-colocar-los-electrodos-y-usar-el-control-por-señal).
+
+Una vez cargado, el firmware funciona al encender el Arduino; el uso normal se controla con D8/D9. La variante incluida tiene la UART deshabilitada y no requiere tener abierto el IDE, un Monitor Serie ni el analizador. Para observar la señal en la computadora, consulta [Analizador y depuración opcional](#analizador-y-depuración-opcional) y las precauciones de conexión de electrodos a USB en [alimentación](#compatibilidad-del-sensor-y-alimentación).
+
+### 5. Colocar los electrodos y usar el control por señal
+
+Con la mano comprobada en modo manual, mantén el **USB desconectado** y el sistema alimentado por baterías antes de colocar los electrodos en el cuerpo. La imagen muestra la colocación utilizada en este proyecto sobre el **antebrazo derecho**. El control usa fronteras fijas de **5 y 10**; repetir la postura y la posición de los parches ayuda a mantener condiciones similares de lectura.
+
+![Colocación de los electrodos en el antebrazo derecho: RA rojo cerca de la muñeca, LA amarillo en medio y RL verde cerca del codo.](docs/imagenes/electrodos-antebrazo-derecho.png)
+
+*Figura 3. Colocación de los electrodos en el antebrazo derecho. Elaboración propia (Arroyo Onofre Leonardo), a partir de una fotografía tomada por el autor.*
+
+| Cable | Color | Terminal del AD8232 | Posición en el antebrazo derecho |
+| --- | --- | --- | --- |
+| **RA** | Rojo | RA | Cerca de la muñeca |
+| **LA** | Amarillo | LA | En medio |
+| **RL** | Verde | RL (referencia) | Cerca del codo |
+
+Los colores corresponden al cable de este montaje; comprueba también las marcas **RA/LA/RL** del módulo y del cable. Estos terminales se conectan a los electrodos, no a los pines de alimentación ni al GND del Arduino.
+
+1. **Brazo y postura.** Apoya el antebrazo derecho relajado sobre una mesa, con la palma hacia arriba (cara del flexor), la mano hacia el frente y el codo hacia el cuerpo.
+2. **Piel.** Limpia la zona con alcohol y deja que seque antes de pegar los parches. Si hay vello que impida el contacto, recórtalo o rasúralo para que el parche toque la piel.
+3. **Posición.** Coloca los tres parches en línea a lo largo de la zona del flexor, con separación similar entre ellos, tomando aproximadamente el ancho del antebrazo como referencia: **RA rojo cerca de la muñeca, LA amarillo en medio y RL verde cerca del codo**, como en la figura.
+4. **Pegado.** Retira el plástico protector, pega cada parche sin arrugas y presiona unos segundos, especialmente los bordes, para evitar burbujas de aire.
+5. **Conexión.** Encaja cada cable en el botón de su parche siguiendo la tabla. Enchufa el cable de electrodos al AD8232 y deja los cables con holgura, sin que tiren de los parches al mover el brazo.
+6. **Activación.** Abre el selector de **D9** para pasar al modo por señal; el cambio de modo solicita apertura. Espera aproximadamente **2 s de señal válida** y un primer bloque nuevo de **200 muestras (~200 ms)** antes de apretar el puño. FW8 comienza automáticamente, sin calibración.
+7. **Pérdida de contacto.** Si `LO+` o `LO−` indican un electrodo desconectado, el firmware solicita apertura. Revisa la adhesión, los botones y el cableado. Al recuperarse la señal, espera otra vez los **2 s de señal válida** y las **200 muestras nuevas** antes de continuar.
+
+**Parches nuevos en cada uso.** Usa parches nuevos cada vez que coloques el sensor. Un parche usado pierde adhesión y puede secarse; al reutilizarlo puede despegarse o hacer mal contacto, produciendo lecturas incorrectas y pérdidas de señal. Al terminar, apaga el montaje, retira los parches despacio y deséchalos.
+
+El programa ordena apertura, posición intermedia o cierre a partir del promedio de actividad. El AD8232 sigue en evaluación física: una carga correcta y el funcionamiento manual no garantizan una clasificación estable de contracciones.
 
 ## Proyecto y estado de FW8
 
@@ -97,43 +159,13 @@ Referencias eléctricas: [ficha AD8232, revisión D](https://www.analog.com/medi
 
 La alimentación final usa **4 celdas 18650 para los servos MG995 (dos portapilas de dos celdas en serie (7.4 V nominales cada uno), conectados entre sí en paralelo: 7.4 V nominales y el doble de capacidad, con un regulador a 5 V) y una pila cuadrada de 9 V para el Arduino**; la LiPo 3S propuesta no se consiguió. Con la fuente anterior, de 5 V fijos, se midieron con multímetro 0.1 a 0.5 A (6 y 13 de noviembre de 2026) y los servos no se movían, tardaban o no giraban completo; además el módulo se quedaba sin alimentación, por eso el Arduino va aparte. Alimenta los servos desde el regulador, dimensionado para sus corrientes, con GND común (también unido a la pila de 9 V); no desde el pin 5V ni el USB del Arduino. Corriente, regulación y autonomía siguen pendientes de validación en el montaje. Con electrodos en el cuerpo, usa alimentación por batería sin conexiones a la red, o aislamiento apropiado para la interfaz de depuración e instrumentos. La [guía del fabricante MyoWare](https://cdn.sparkfun.com/assets/learn_tutorials/1/9/5/6/MyoWare_v2_QuickStartGuide.pdf) explica esta precaución para sistemas de electrodos conectados a USB.
 
-## Cableado de señales
+<a id="carga-y-primera-prueba"></a>
 
-| Componente | Pin UNO | Conexión/configuración |
-| --- | --- | --- |
-| AD8232 `3.3V` | 3.3V | Alimentación del módulo, nunca riel de servos de 5 V |
-| AD8232 `GND` | GND | Tierra común de señal |
-| AD8232 `OUTPUT` | A0 | Señal con nivel DC; ADC0/AVcc, 10 bits |
-| AD8232 `LO+` | A1 | Pérdida de contacto, activo en alto, `INPUT` |
-| AD8232 `LO−` | A2 | Pérdida de contacto, activo en alto, `INPUT` |
-| AD8232 `SDN` | 3.3V | Mantener habilitado, sin GPIO de 5 V |
-| Servo pulgar | D3 | Señal del servo |
-| Servo índice | D5 | Señal del servo |
-| Servo medio | D6 | Señal del servo |
-| Servo anular | D10 | Señal del servo |
-| Servo meñique | D11 | Señal del servo |
-| Pulsador | D8 | Entre D8 y GND, `INPUT_PULLUP` |
-| Selector | D9 | GND = manual; abierto = EMG, `INPUT_PULLUP` |
-| Pines libres | D7/D12/D13 | Sin LED RGB ni asignación en el firmware |
-| Prueba de muestreo | D2 | Salida opcional; un flanco por conversión ADC |
-| Depuración USB | D0/D1 | UART a 115200 baud solo en la variante de depuración |
-
-La tabla sustituye los pines de servo D2–D6 del código original: el proyecto usa D3/D5/D6/D10/D11.
-
-La guía genérica de SparkFun conecta LO+/LO− a D10/D11; aquí esos pines ya controlan servos y **se usan A1/A2 para LO+/LO−**. No conectes ambas funciones a los mismos pines.
-
-## Carga y primera prueba
-
-Abre [Inmoov_EMG.ino](Inmoov_EMG/Inmoov_EMG.ino) para cargar el firmware completo y la inversión de medio, anular y meñique. Conserva el nombre de la carpeta `Inmoov_EMG` y del archivo `Inmoov_EMG.ino`. No requiere copiar los módulos `.h` y `.cpp`.
-
-1. Abre `Inmoov_EMG/Inmoov_EMG.ino` en Arduino IDE. Instala la biblioteca **Servo** y selecciona **Arduino Uno** y el puerto correcto. EEPROM viene con el núcleo AVR.
-2. Los valores `OPEN_US` y `CLOSED_US` están incluidos en el propio `.ino`. Medio (D6), anular (D10) y meñique (D11) tienen los extremos intercambiados para invertir su giro: apertura a 2400 us y cierre a 544 us. Si mantienes los módulos como fuente, ajusta `Config.h` y regenera con `python scripts/export_ino.py`. Ajusta los extremos con los tensores sueltos.
-3. Carga el programa y verifica primero el modo manual: D9 a GND y una pulsación en D8 para cerrar; otra para abrir. Mantener pulsado no repite la orden. Un cambio de modo ordena abrir la mano.
-4. Conecta OUTPUT y ambas salidas LO. Espera 2 s de señal estable. El control fijo comienza tras estabilizar la señal y completar 200 muestras nuevas; no requiere calibración.
+## Analizador y depuración opcional
 
 La compilación predeterminada es **normal**, con `EMG_SERIAL_DEBUG=0`: no inicia, lee ni emite por UART. La UART del UNO no ofrece cifrado ni autenticación; la variante de uso normal evita transmitir datos de señal y estado.
 
-Para usar el analizador, carga la variante **depuracion** según [Inicio rápido](#inicio-rápido), cambiando `--input-dir` a `build/depuracion`. En Arduino IDE puedes añadir `#define EMG_SERIAL_DEBUG 1` al principio del `.ino`, antes de la sección `Config.h`, y subirlo; la regeneración elimina esa edición local. Con CLI se habilita mediante `-DEMG_SERIAL_DEBUG=1`, que `build.py` aplica a esa variante. Para volver al uso normal, carga `build/normal` o elimina el define del IDE y vuelve a subir.
+Para usar el analizador, carga la variante **depuracion** según [Cómo compilar después de modificar el código](#cómo-compilar-después-de-modificar-el-código), cambiando `--input-dir` a `build/depuracion`. En Arduino IDE puedes añadir `#define EMG_SERIAL_DEBUG 1` al principio del `.ino`, antes de la sección `Config.h`, y subirlo; la regeneración elimina esa edición local. Con CLI se habilita mediante `-DEMG_SERIAL_DEBUG=1`, que `build.py` aplica a esa variante. Para volver al uso normal, carga `build/normal` o elimina el define del IDE y vuelve a subir.
 
 Solo en depuración, abre el Monitor Serie a **115200 baudios** y envía `?` para identificar el firmware. Debe aparecer `E,...,SERVO_REVERSE_MASK,28`: indica que medio, anular y meñique están invertidos. Cierra el monitor antes de abrir el analizador. El flujo periódico arranca apagado y se activa con `p`; el analizador lo envía automáticamente si no recibe flujo inicial. Los eventos puntuales de arranque, fallas y consultas pueden emitirse sin `p`. Si el movimiento físico no corresponde, comprueba que sus señales estén en D6, D10 y D11.
 
@@ -194,9 +226,63 @@ Estos sketches independientes se conservan tal como estaban en el directorio del
 
 Ambos compilan para UNO. Las confirmaciones del servo y las lecturas del ADC son herramientas de diagnostico; los resultados fisicos deben registrarse durante el ensayo. Las pruebas automatizadas de `tests/` verifican logica con datos sinteticos y cumplen otra funcion.
 
-## Configuración y verificación reproducibles
+## Cómo compilar después de modificar el código
 
-Dependencias fijadas: Arduino CLI 1.1.1, Arduino AVR Boards **1.8.6**, Servo **1.2.2**, EEPROM **2.0** incluida en AVR; dependencias Python en [requirements.txt](Inmoov_EMG/analizador_senal/requirements.txt). Firmware Arduino C++11; pruebas nativas C++14. Se conservan Arduino y Servo, por lo que no se presenta como C puro. Los comandos de instalación, pruebas, compilación y carga están en [Inicio rápido](#inicio-rápido).
+Esta sección sirve para **cambiar el firmware y generar una nueva versión del sketch o de los binarios**, por ejemplo al ajustar pines, extremos de servos, filtros o niveles de control. El archivo `.ino` ya incluido permite [cargar y usar la versión existente con Arduino IDE](#cómo-correr-el-programa).
+
+Los módulos `.h` y `.cpp` de `Inmoov_EMG/` son la fuente para mantener los cambios. Edita esos módulos, por ejemplo `Config.h` para pines y extremos, y regenera `Inmoov_EMG.ino`; una regeneración reemplaza las ediciones hechas directamente en el `.ino`.
+
+Para el flujo de scripts necesitas el repositorio completo, **Python 3.10+**, pip, **Arduino CLI 1.1.1** en PATH y un compilador C++ (g++, clang++ o Visual Studio C++ con Windows SDK). La interfaz gráfica del analizador también requiere Tk. Ejecuta los comandos desde la raíz del repositorio.
+
+1. **Instala las dependencias.** En Bash: `bash scripts/bootstrap.sh` (usa `python3`; puedes seleccionar otro intérprete con `PYTHON`). En PowerShell:
+
+   ```powershell
+   arduino-cli core update-index
+   if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar el indice" }
+   arduino-cli core install arduino:avr@1.8.6
+   if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar AVR" }
+   arduino-cli lib install Servo@1.2.2
+   if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Servo" }
+   python -m pip install -r Inmoov_EMG/analizador_senal/requirements.txt
+   if ($LASTEXITCODE -ne 0) { throw "No se pudieron instalar las dependencias Python" }
+   ```
+
+2. **Modifica los módulos y regenera el sketch autocontenido:**
+
+   ```powershell
+   python scripts/export_ino.py
+   ```
+
+   Esto actualiza `Inmoov_EMG/Inmoov_EMG.ino`. Puedes abrirlo en Arduino IDE y cargarlo como indica [Cómo correr el programa](#cómo-correr-el-programa).
+
+3. **Ejecuta las pruebas**, guardando el informe en `build/` para conservar el informe histórico:
+
+   ```powershell
+   python scripts/test.py --report build/resultados-pruebas.md
+   ```
+
+   Debe terminar con código 0. Si faltan `pyserial` o `cryptography`, avisa al inicio e indica cómo instalarlos; `--native-only` omite las pruebas Python y esa comprobación.
+
+4. **Compila los binarios para Arduino Uno por CLI:**
+
+   ```powershell
+   python scripts/build.py
+   ```
+
+   El script vuelve a regenerar el `.ino`, compila las variantes `normal` (sin UART) y `depuracion` (para el analizador) y deja los binarios y logs en `build/normal` y `build/depuracion`. Debe terminar con código 0. No carga la placa.
+
+5. **Si eliges cargar los binarios por CLI**, conecta el UNO por USB con los electrodos desconectados del cuerpo y la alimentación de servos apagada. Sustituye COM3 por el puerto real:
+
+   ```powershell
+   arduino-cli upload --fqbn arduino:avr:uno --port COM3 --input-dir build/normal Inmoov_EMG
+   if ($LASTEXITCODE -ne 0) { throw "No se pudo cargar el firmware" }
+   ```
+
+   Para el analizador usa `--input-dir build/depuracion`. Si `build.py` generó `build/arduino-local.yaml`, añade `--config-file build/arduino-local.yaml` a `upload`; con una configuración propia, usa el mismo YAML que al compilar. Después de cargar, vuelve al [procedimiento de conexión y prueba](#cómo-correr-el-programa).
+
+### Configuración y verificación reproducibles
+
+Dependencias fijadas: Arduino CLI 1.1.1, Arduino AVR Boards **1.8.6**, Servo **1.2.2**, EEPROM **2.0** incluida en AVR; dependencias Python en [requirements.txt](Inmoov_EMG/analizador_senal/requirements.txt). Firmware Arduino C++11; pruebas nativas C++14. Se conservan Arduino y Servo, por lo que no se presenta como C puro. Los comandos de instalación, pruebas, compilación y carga por CLI están en [Cómo compilar después de modificar el código](#cómo-compilar-después-de-modificar-el-código).
 
 `build.py` busca CLI en PATH o en Arduino IDE de Windows, comprueba AVR/Servo y selecciona explícitamente la biblioteca. Antes de compilar, regenera el único sketch de firmware, `Inmoov_EMG/Inmoov_EMG.ino`. `--variant normal` o `--variant depuracion` selecciona solo una variante; `--no-debug` es alias de la normal. `--no-probe` desactiva D2 y añade `-sin-sonda` a la carpeta y al log (por ejemplo, `python scripts/build.py --variant normal --no-probe`). Acepta `--cli RUTA`, `--config RUTA_YAML` y `--servo-library CARPETA_SERVO` para otras instalaciones. No descarga ni carga firmware. Los scripts propagan errores y generan logs en `build/` (ignorado por Git).
 
@@ -211,7 +297,7 @@ Son cifras del compilador, conservadas en `build/normal.txt` y `build/depuracion
 
 `test.py` descubre el entorno de MSVC automáticamente. Prueba el driver UART con `EMG_SERIAL_DEBUG=1` y comprueba por separado que la configuración normal no inicia, lee ni escribe UART. Por defecto regenera `docs/resultados-pruebas.md`; para comprobar el proyecto sin modificar el informe histórico, usa `--report build/resultados-pruebas.md`. `--native-only` omite el analizador Python. REPLAY-30S, PC-DATOS y EVIDENCIA usan exclusivamente el [dato sintético y su manifiesto](tests/datos/README.md); no validan señales físicas.
 
-Para cargar la variante que necesita el analizador, cambia el comando de Inicio rápido a `--input-dir build/depuracion`. Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. Ambas variantes ejecutan FW8 sin calibración y conservan el modo manual con D9/D8.
+Para cargar la variante que necesita el analizador, usa `--input-dir build/depuracion` en el comando de carga de [Cómo compilar después de modificar el código](#cómo-compilar-después-de-modificar-el-código). Después de cargar, cada encendido ejecuta `setup()` automáticamente; no se espera conexión USB ni se requiere servicio Linux. Ambas variantes ejecutan FW8 sin calibración y conservan el modo manual con D9/D8.
 
 Resultados y límites de validación están en [la tabla de pruebas](docs/resultados-pruebas.md) y [la matriz de requisitos](docs/requisitos.md). No se cargó firmware en una placa ni se accionaron motores durante esta modificación. El movimiento, PWM, consumo, exactitud muscular, autonomía y estabilidad eléctrica requieren ensayos físicos.
 
