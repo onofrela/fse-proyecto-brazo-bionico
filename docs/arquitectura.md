@@ -4,7 +4,7 @@ La plataforma de FW8 es Arduino UNO R3 a 16 MHz, sin SO. El control fijo por tre
 
 ```mermaid
 flowchart TD
-    BAT[4 × 18650] --> SW[Interruptor principal]
+    BAT[4 × 18650: 2 portapilas en serie, conectados en paralelo] --> SW[Interruptor principal]
     SW --> REGS[Regulador ajustado a 5 V]
     REGS --> POWER[Alimentación externa de cinco servos MG995]
     PILA[Pila cuadrada de 9 V] --> MCU[Arduino UNO: alimentación independiente]

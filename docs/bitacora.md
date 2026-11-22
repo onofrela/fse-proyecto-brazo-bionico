@@ -14,7 +14,7 @@ FW8 usa esa referencia con bandas fijas: `ThreeLevelControl` promedia bloques de
 
 El costo aceptado es la latencia: a 1 kHz, cada bloque de 200 muestras representa aproximadamente 200 ms. **R1 (≤ 50 ms) ya no se cumple por diseño**. LAT-FW8 recorre 200 fases por amplitud con ADC sintético, filtro, promedio y rampa: primer destino y primer paso escrito en 161–360 ms con amplitud 12 ADC y 58–257 ms con 40 ADC. Usa reposo ADC 338, seno de 100 Hz y bucle de 1 ms; las pruebas de software no sustituyen una medición física de ISR, PWM o respuesta de la mano.
 
-Se retiró el LED RGB y su código; D7/D12/D13 quedan libres. El montaje final usa 4 celdas 18650 para los servos MG995 y una pila de 9 V para el Arduino; la LiPo 3S propuesta no se consiguió y la fuente anterior (5 V fijos, 0.1 a 0.5 A) no movía bien los servos. La variante `normal` no inicia, lee ni escribe UART; `depuracion` conserva diagnóstico y comandos, con telemetría periódica apagada hasta `p`.
+Se retiró el LED RGB y su código; D7/D12/D13 quedan libres. El montaje final usa 4 celdas 18650 para los servos MG995 (dos portapilas de dos celdas en serie (7.4 V nominales cada uno), conectados entre sí en paralelo: 7.4 V nominales y el doble de capacidad) y una pila de 9 V para el Arduino; la LiPo 3S propuesta no se consiguió y la fuente anterior (5 V fijos, 0.1 a 0.5 A) no movía bien los servos. La variante `normal` no inicia, lee ni escribe UART; `depuracion` conserva diagnóstico y comandos, con telemetría periódica apagada hasta `p`.
 
 Las tablas D01–D10 documentan etapas anteriores; sus referencias a calibración y control ponderado son históricas. La planificación y las cifras siguientes se sincronizan con FW8 cuando se indica.
 
