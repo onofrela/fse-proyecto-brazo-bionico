@@ -4,10 +4,10 @@ La plataforma de FW8 es Arduino UNO R3 a 16 MHz, sin SO. El control fijo por tre
 
 ```mermaid
 flowchart TD
-    BAT[2 × 18650 en serie] --> SW[Interruptor principal]
-    SW --> BUCK[Buck ajustado a 5 V]
-    BUCK --> MCU[Arduino UNO: alimentación regulada]
-    BUCK --> POWER[Alimentación externa de cinco servos]
+    BAT[4 × 18650] --> SW[Interruptor principal]
+    SW --> REGS[Regulador ajustado a 5 V]
+    REGS --> POWER[Alimentación externa de cinco servos MG995]
+    PILA[Pila cuadrada de 9 V] --> MCU[Arduino UNO: alimentación independiente]
     MCU --> REG[Salida 3.3 V del UNO]
     REG --> SENSOR[AD8232: 3.3 V]
     ELECT[Electrodos RA / LA / RL] --> SENSOR

@@ -22,12 +22,12 @@ Antes de declarar estable el montaje, ejecutar y documentar el [plan del sensor]
 | R2 | Video >=60 fps, mano sin objeto, batería >=12 V; 10 cierres, promedio <=1000 ms. Guardar inicio/fin por repetición | Sin medir | Pendiente |
 | R3 | Goniómetro/foto con escala, 3 repeticiones por dedo; 0–150 grados ±5 | Sin medir | Pendiente |
 | R4 | Tensor de 30 cm y mismos nudos, masa de 2.5 kg por 60 s, longitud 5 min después; sin ruptura, elongación <=2% | Sin medir | Pendiente |
-| R5 | LiPo 3S 1000 mAh a 12.6 V, apertura+cierre cada 10 s, fin 10.5 V; >=90 min, voltaje cada 10 min; corriente promedio <=1 A en riel de 5 V | Sin medir | Pendiente |
+| R5 | 4 celdas 18650 para los servos y pila de 9 V para el Arduino; apertura+cierre cada 10 s; definir el voltaje de corte según las celdas; >=90 min, voltaje cada 10 min; corriente promedio <=1 A en riel de 5 V | 6 y 13 de noviembre de 2026, multímetro, fuente anterior: 5 V fijos y 0.1 a 0.5 A; servos sin respuesta adecuada. Autonomía sin medir | Parcial |
 | R6 | 50 contracciones y 5 min reposo; >=45 detectadas, <=5 falsas en el reposo y revisar distribución por minuto <=1 | Sin medir | Pendiente |
 | R7 | Capturar D3/D5/D6/D10/D11 bajo movimiento; periodos entre 19.8 y 20.2 ms y error de ancho <=20 us contra orden | Sin medir | Pendiente |
 | R8 | Capturar D2, servos activos: 0.99–1.01 ms entre flancos consecutivos. Si el instrumento muestra onda completa, debe indicar ~500 Hz, no 1000 Hz | Sin medir | Pendiente |
 | R9 | Osciloscopio CH1 botón/selector y CH2 LED; incluir rebotes y distintas fases; todos <=20 ms | Sin medir | Pendiente |
-| R10 | 100 arranques simultáneos de los 5 servos; buck entre 4.75 y 5.25 V y contador BOOT sin cambio dentro de la sesión | Sin medir | Pendiente |
+| R10 | 100 arranques simultáneos de los 5 servos; riel de 5 V entre 4.75 y 5.25 V y contador BOOT sin cambio dentro de la sesión | Sin medir | Pendiente |
 | F1 físico | Despegar y recolocar electrodo: apertura si LO detecta desconexión, no cierre sostenido por ruido, >=2000 muestras estables y reposo antes del cierre; recuperación sin reset | Sin medir | Pendiente |
 | F2 mecánico | Ensayo de dedo bloqueado por 10 s con montaje adecuado: riel >=4.75 V, sin reset ni daño/elongación permanente; al soltar responde. No hay detección de bloqueo en firmware | Sin medir | Pendiente |
 | F3 físico | Desconectar/reconectar OUTPUT y observar ADC/LO; documentar si el hardware detecta la desconexión. Un cable flotante puede quedar en rango, por lo que no se garantiza detección | Sin medir | Pendiente |

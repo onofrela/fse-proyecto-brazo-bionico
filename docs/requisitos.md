@@ -23,10 +23,10 @@ Esta matriz evalúa los requisitos del proyecto sobre la base Arduino disponible
 | ID | Compromiso | Resultado disponible | Falta para aceptación |
 | --- | --- | --- | --- |
 | R1 | <=50 ms a primer PWM modificado, 20 eventos | LAT-FW8: primer destino y primer paso escrito en 161–360 ms con amplitud 12 ADC; 58–257 ms con 40 ADC | **No cumple por diseño**: bloque de 200 muestras (~200 ms). Medir PWM en placa para caracterizar la respuesta, sin declarar cumplimiento |
-| R2 | Cierre <=1 s, promedio de 10 cierres | Recorrido ordenado 780 ms en UNIT-01, desde la orden de cierre; no incluye la espera de decisión | Video >=60 fps con 2×18650 en serie y buck a 5 V; registrar tensión del montaje |
+| R2 | Cierre <=1 s, promedio de 10 cierres | Recorrido ordenado 780 ms en UNIT-01, desde la orden de cierre; no incluye la espera de decisión | Video >=60 fps (las cámaras del equipo solo graban a 30 fps; en video a 30 fps la apertura tarda ≈ 0.8 s) con 4 celdas 18650 y regulador a 5 V; registrar tensión del montaje |
 | R3 | 0–150 grados ±5 por dedo | Pulsos configurables 544/2400 us (0°/180° ordenados por solicitud posterior) | Goniómetro, 3 repeticiones por dedo |
 | R4 | 2.5 kg durante 60 s; elongación <=2% | Sin prueba mecánica | Ensayo de tensor y nudos |
-| R5 | >=90 min; promedio <=1 A a 5 V | Sin medida de corriente/autonomía para 2×18650 en serie + buck | Ciclo cada 10 s, voltaje cada 10 min; definir corte según celdas y protección del montaje; 10.5 V era de la propuesta LiPo 3S |
+| R5 | >=90 min; promedio <=1 A a 5 V | Multímetro el 6 y 13 de noviembre de 2026 con la fuente anterior: 0.1 a 0.5 A con 5 V fijos y servos sin respuesta adecuada; sin medida de autonomía para 4 celdas 18650 + regulador | Ciclo cada 10 s, voltaje cada 10 min; definir corte según celdas y protección del montaje; 10.5 V era de la propuesta LiPo 3S |
 | R6 | >=90% detección; <=1 falsa/min | Tres niveles y recuperación de fallas con entradas sintéticas verificados | 50 contracciones y 5 min de reposo |
 | R7 | 20 ms ±1%; pulsos 1–2 ms ±20 us | Servo/Timer1 configurados; extremos actuales 544–2400 us, fuera del intervalo 1–2 ms de este requisito; 5 órdenes verificadas con doble | Captura simultánea de 5 canales en movimiento |
 | R8 | 1 kHz ±1% | Cálculo Timer2 =1000 Hz; cola con contador de pérdida | Medir intervalos entre flancos D2, servos activos |
